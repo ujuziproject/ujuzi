@@ -1,0 +1,6 @@
+{
+  "name": "uJuzi Onboarding",
+  "description": "Student onboarding flow for uJuzi platform, featuring track selection and interests profiling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

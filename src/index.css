@@ -1,0 +1,94 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-ink: var(--theme-ink);
+  --color-surface: var(--theme-surface);
+  --color-surface-alt: var(--theme-surface-alt);
+  --color-accent: var(--theme-accent);
+  --color-accent-warm: var(--theme-accent-warm);
+  --color-success: var(--theme-success);
+  --color-border: var(--theme-border);
+
+  --color-slate-50: var(--theme-slate-50);
+  --color-slate-100: var(--theme-slate-100);
+  --color-slate-200: var(--theme-slate-200);
+  --color-slate-300: var(--theme-slate-300);
+  --color-slate-400: var(--theme-slate-400);
+  --color-slate-500: var(--theme-slate-500);
+  --color-slate-600: var(--theme-slate-600);
+  --color-slate-700: var(--theme-slate-700);
+  --color-slate-800: var(--theme-slate-800);
+  --color-slate-900: var(--theme-slate-900);
+
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  :root {
+    --theme-ink: #0F0B2E;
+    --theme-surface: #F5F4FA;
+    --theme-surface-alt: #FFFFFF;
+    --theme-accent: #5B4FE8;
+    --theme-accent-warm: #F5A623;
+    --theme-success: #2FBF8F;
+    --theme-border: #E4E1F5;
+    
+    --theme-slate-50: #f8fafc;
+    --theme-slate-100: #f1f5f9;
+    --theme-slate-200: #e2e8f0;
+    --theme-slate-300: #cbd5e1;
+    --theme-slate-400: #94a3b8;
+    --theme-slate-500: #64748b;
+    --theme-slate-600: #475569;
+    --theme-slate-700: #334155;
+    --theme-slate-800: #1e293b;
+    --theme-slate-900: #0f172a;
+  }
+
+  .dark {
+    --theme-ink: #F5F4FA;
+    --theme-surface: #0F0B2E;
+    --theme-surface-alt: #1A1449;
+    --theme-accent: #8E84F5;
+    --theme-accent-warm: #F8C370;
+    --theme-success: #4ADE80;
+    --theme-border: #241C63;
+
+    --theme-slate-50: #0f172a;
+    --theme-slate-100: #1e293b;
+    --theme-slate-200: #334155;
+    --theme-slate-300: #475569;
+    --theme-slate-400: #64748b;
+    --theme-slate-500: #94a3b8;
+    --theme-slate-600: #cbd5e1;
+    --theme-slate-700: #e2e8f0;
+    --theme-slate-800: #f1f5f9;
+    --theme-slate-900: #f8fafc;
+  }
+
+  body {
+    @apply bg-surface text-ink font-sans transition-colors duration-300;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display text-ink transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+}
