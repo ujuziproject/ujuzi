@@ -376,10 +376,8 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
       
       <div className="bg-gradient-to-br from-[#110B30] to-[#1A114D] rounded-3xl p-8 md:p-11 mb-6 relative overflow-hidden text-white shadow-sm">
          <div className="relative z-10 flex flex-col items-start">
-            <div className="inline-flex items-center gap-2 bg-accent-warm/15 border border-[#F5A623]/25 text-[#F5A623] px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold mb-4 backdrop-blur-sm">
-               {totalTopics > 0 || curricula.length > 0 
-                 ? (isPlanUpToDate ? "✦ Your plan is up to date" : "✦ You have tasks pending today")
-                 : "✦ Ready to start"}
+            <div className="mb-4"><span className="inline-flex items-center gap-2 bg-accent-warm/15 border border-[#F5A623]/25 text-[#F5A623] px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold backdrop-blur-sm">
+               {totalTopics > 0 || curricula.length > 0 ? (isPlanUpToDate ? "✦ Your plan is up to date" : "✦ You have tasks pending today") : "✦ Ready to start"}</span>
             </div>
                
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
@@ -389,7 +387,7 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
             <p className="text-white/70 text-[15px] mb-6 max-w-xl">
                {totalTopics > 0 || curricula.length > 0 
                  ? nextUpText
-                 : "Your dashboard is looking a little empty. Follow these simple steps to start turning your study materials into interactive, AI-powered learning experiences."}
+                 : "Your dashboard is looking a little empty. Add your first study materials to get started."}
             </p>
                
             <div className="flex flex-wrap items-center gap-3">
