@@ -23,18 +23,16 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
     async function loadContainers() {
       if (track === 'university') {
         const { data } = await supabase.from('semesters').select('*').eq('student_id', userId).order('level_year', { ascending: false });
-        if (data && data.length > 0) {
+        if (data) {
           setSemesters(data);
           if (data.length === 1) setSelectedContainer(data[0].id);
         }
-      } else if (track === 'independent') {
+      } else {
         const { data } = await supabase.from('learning_goals').select('*').eq('student_id', userId).order('created_at', { ascending: false });
-        if (data && data.length > 0) {
+        if (data) {
           setGoals(data);
           if (data.length === 1) setSelectedContainer(data[0].id);
         }
-      } else {
-        // secondary track or fallback, we might not have containers, but let's just show single/bulk
       }
       setLoading(false);
     }
@@ -91,7 +89,7 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
     setLoading(false);
   };
 
-  if (!selectedContainer && track === 'independent' && goals.length === 0) {
+  if (!selectedContainer && track !== 'university' && goals.length === 0) {
     return (
       <div className="bg-surface-alt rounded-2xl border border-border p-8 animate-in fade-in max-w-lg mx-auto">
          <div className="text-center mb-6">
@@ -206,7 +204,7 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
     <CourseUpload 
       userId={userId} 
       semesterId={track === 'university' && selectedContainer ? selectedContainer : undefined}
-      goalId={track === 'independent' && selectedContainer ? selectedContainer : undefined}
+      goalId={track !== 'university' && selectedContainer ? selectedContainer : undefined}
       bulk={uploadType === 'bulk'}
       onUploadComplete={onUploadComplete} 
     />

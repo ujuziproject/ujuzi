@@ -191,7 +191,7 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
         
         <div className="bg-[#FDF1DC] dark:bg-[#F5A623]/15 rounded-2xl p-4 mt-4 text-ink">
            <div className="font-mono text-[10px] uppercase tracking-widest text-ink/55 mb-1.5">Streak</div>
-           <div className="font-display font-bold text-lg">🔥 {streakDays} days</div>
+           <div className="font-display font-bold text-lg">🔥 {streakDays} {streakDays === 1 ? 'day' : 'days'}</div>
            <div className="text-xs text-ink/60 mt-1">Keep it alive — 20 min today.</div>
         </div>
       </div>
