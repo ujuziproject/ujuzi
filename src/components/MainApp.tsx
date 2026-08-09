@@ -14,6 +14,7 @@ import { cn } from '../lib/utils';
 
 interface MainAppProps {
   name: string;
+  avatarUrl?: string;
   userId: string;
   onLogout: () => void;
 }
@@ -59,7 +60,7 @@ export function useNavigationStore() {
   return ctx;
 }
 
-export function MainApp({ name, userId, onLogout }: MainAppProps) {
+export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
   const { theme, toggleTheme } = useTheme();
   const [currentView, setCurrentView] = useState<'dashboard' | 'courses' | 'flashcards' | 'quizzes' | 'planner' | 'curricula' | 'progress' | 'profile'>('dashboard');
   const [aiInsight, setAiInsight] = useState('Upload a curriculum to get your first personalized study plan and start tracking your progress.');
@@ -179,9 +180,7 @@ export function MainApp({ name, userId, onLogout }: MainAppProps) {
         <nav className="flex flex-col gap-1 flex-1">
            <SidebarItem active={currentView === 'dashboard'} icon={<LayoutGrid className="w-[18px] h-[18px]" />} label="Overview" onClick={() => { setCurrentView('dashboard'); setDashboardView('home'); }} />
            <SidebarItem active={currentView === 'courses'} icon={<BookOpen className="w-[18px] h-[18px]" />} label="Courses" onClick={() => setCurrentView('courses')} />
-           <SidebarItem active={currentView === 'flashcards'} icon={<Library className="w-[18px] h-[18px]" />} label="Flashcards" onClick={() => setCurrentView('flashcards')} />
-           <SidebarItem active={currentView === 'quizzes'} icon={<CheckSquare className="w-[18px] h-[18px]" />} label="Quizzes" onClick={() => setCurrentView('quizzes')} />
-           <SidebarItem active={currentView === 'progress'} icon={<Activity className="w-[18px] h-[18px]" />} label="Progress" onClick={() => setCurrentView('progress')} />
+                                 <SidebarItem active={currentView === 'progress'} icon={<Activity className="w-[18px] h-[18px]" />} label="Progress" onClick={() => setCurrentView('progress')} />
            <SidebarItem active={currentView === 'planner'} icon={<Calendar className="w-[18px] h-[18px]" />} label="Planner" onClick={() => setCurrentView('planner')} />
            <SidebarItem active={currentView === 'profile'} icon={<Settings className="w-[18px] h-[18px]" />} label="Settings" onClick={() => setCurrentView('profile')} />
            <SidebarItem active={false} icon={<LogOut className="w-[18px] h-[18px]" />} label="Log Out" onClick={onLogout} />
@@ -219,8 +218,8 @@ export function MainApp({ name, userId, onLogout }: MainAppProps) {
              <span className="absolute top-2 right-2.5 w-[7px] h-[7px] bg-[#F5A623] rounded-full"></span>
            </button>
            
-           <button onClick={() => setCurrentView('profile')} className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B4FE8] to-[#7C6FF0] text-white flex items-center justify-center font-semibold text-[13px] cursor-pointer">
-             {name ? name.charAt(0).toUpperCase() : 'U'}
+                      <button onClick={() => setCurrentView('profile')} className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B4FE8] to-[#7C6FF0] text-white flex items-center justify-center font-semibold text-[13px] cursor-pointer overflow-hidden border-2 border-transparent hover:border-accent transition-all">
+             {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : (name ? name.charAt(0).toUpperCase() : 'U')}
            </button>
         </header>
 
@@ -231,9 +230,7 @@ export function MainApp({ name, userId, onLogout }: MainAppProps) {
           {currentView === 'curricula' && track === 'university' && <MySemesters userId={userId} />}
           {currentView === 'curricula' && track === 'independent' && <MyGoals userId={userId} />}
           {currentView === 'curricula' && track === 'secondary' && <MyCurricula userId={userId} />}
-          {currentView === 'flashcards' && <FlashcardReviewer userId={userId} flashcards={[]} />}
-          {currentView === 'progress' && <Progress userId={userId} />}
-          {currentView === 'progress' && <Progress userId={userId} />}
+                    {currentView === 'progress' && <Progress userId={userId} />}
           {currentView === 'profile' && <Profile userId={userId} />}
         </main>
       </div>

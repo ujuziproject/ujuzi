@@ -25,6 +25,7 @@ export default function App() {
   const [step, setStep] = useState<number | string>(-1); // -1 = landing, 0 = login, 1 = signup
   const [userId, setUserId] = useState<string>('');
   const [name, setName] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [track, setTrack] = useState<Track>('secondary');
   const [loadingSession, setLoadingSession] = useState(true);
   const [showDelight, setShowDelight] = useState(false);
@@ -49,12 +50,15 @@ export default function App() {
       // Fetch name from profiles
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, avatar_url')
         .eq('id', id)
         .single();
         
       if (profile?.full_name) {
         setName(profile.full_name);
+      }
+      if (profile?.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
       }
 
       // Check student_profiles
@@ -193,7 +197,7 @@ export default function App() {
   }
 
   if (step === 7) {
-    return <MainApp name={name} userId={userId} onLogout={handleLogOut} />;
+    return <MainApp name={name} avatarUrl={avatarUrl} userId={userId} onLogout={handleLogOut} />;
   }
 
   return (

@@ -3,12 +3,14 @@ import { supabase } from '../lib/supabase';
 import { Search, Loader2 } from 'lucide-react';
 
 interface UniversityDropdownProps {
+  initialName?: string;
   value: string; // The ID
   onChange: (id: string, name: string) => void;
   className?: string;
 }
 
-export function UniversityDropdown({ value, onChange, className }: UniversityDropdownProps) {
+export function UniversityDropdown({ value, onChange, className, initialName }: UniversityDropdownProps) {
+  useEffect(() => { if (initialName && !searchTerm) setSearchTerm(initialName); }, [initialName]);
   const [universities, setUniversities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,7 +67,7 @@ export function UniversityDropdown({ value, onChange, className }: UniversityDro
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Search for your university..."
-          className="block w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-colors"
+          className="block w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-colors"
         />
         <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
       </div>

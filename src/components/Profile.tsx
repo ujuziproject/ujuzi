@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Upload } from 'lucide-react';
 import { Track } from '../types';
 import { Step5LearningStyle } from './Step5LearningStyle';
 import { UniversityDropdown } from './UniversityDropdown';
@@ -28,6 +28,10 @@ export function Profile({ userId }: { userId: string }) {
   const [examYear, setExamYear] = useState(new Date().getFullYear().toString());
   const [msg, setMsg] = useState('');
   const [myInterests, setMyInterests] = useState<string[]>([]);
+
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [timezone, setTimezone] = useState('Africa/Lagos');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   
   const [contentFormat, setContentFormat] = useState('balanced');
   const [explanationComplexity, setExplanationComplexity] = useState('balanced');
@@ -49,6 +53,11 @@ export function Profile({ userId }: { userId: string }) {
       setContentFormat(profile.content_format_preference || 'balanced');
       setExplanationComplexity(profile.explanation_complexity_preference || 'balanced');
       setHasTakenQuiz(!!profile.learning_style_set_at);
+
+      if (profile.timezone) setTimezone(profile.timezone);
+      
+      const { data: pData } = await supabase.from('profiles').select('avatar_url').eq('id', userId).single();
+      if (pData?.avatar_url) setAvatarUrl(pData.avatar_url);
     }
     
     // Fetch interests
@@ -66,6 +75,30 @@ export function Profile({ userId }: { userId: string }) {
     loadProfile();
   }, [userId]);
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingAvatar(true);
+      if (!e.target.files || e.target.files.length === 0) return;
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/avatar_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const url = publicUrlData.publicUrl;
+      
+      await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId);
+      setAvatarUrl(url);
+    } catch (error) {
+      console.error(error);
+      setMsg('Error uploading avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMsg('');
@@ -79,6 +112,7 @@ export function Profile({ userId }: { userId: string }) {
       level_year: track === 'university' ? parseInt(level) || null : null,
       exam_type: track === 'secondary' ? examType : null,
       exam_year: track === 'secondary' ? parseInt(examYear) : null,
+      timezone: timezone,
       content_format_preference: contentFormat,
       explanation_complexity_preference: explanationComplexity,
       updated_at: new Date().toISOString(),
@@ -122,13 +156,12 @@ export function Profile({ userId }: { userId: string }) {
             <button
               onClick={() => setTrack('independent')}
               className={`flex-1 py-3 px-4 rounded-full border text-sm font-semibold transition-colors ${track === 'independent' ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-surface border-border text-slate-500 hover:border-accent/30'}`}
-            >
-              Post-Development
-            </button>
+            > Independent </button>
           </div>
         </div>
 
-        {track === 'secondary' ? (
+        
+        {track === 'secondary' && (
           <>
             <div>
               <label className="block text-sm font-bold text-ink mb-2">Target Exam</label>
@@ -153,12 +186,14 @@ export function Profile({ userId }: { userId: string }) {
               />
             </div>
           </>
-        ) : (
+        )}
+        {track === 'university' && (
           <>
             <div>
               <label className="block text-sm font-bold text-ink mb-2">Institution</label>
               <UniversityDropdown
                 value={universityId}
+                initialName={institution}
                 onChange={(id, name) => {
                   setUniversityId(id);
                   setInstitution(name);
@@ -199,8 +234,8 @@ export function Profile({ userId }: { userId: string }) {
             </div>
           </>
         )}
-
-        {/* Profile Test Results */}
+        {/* Profile Test Results
+ */}
         <div className="pt-8 border-t border-border mt-8">
             <h2 className="text-xl font-bold text-ink mb-4 font-display">Profile Test Results</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

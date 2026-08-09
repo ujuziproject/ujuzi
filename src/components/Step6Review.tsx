@@ -100,6 +100,18 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  const handleFinalize = async () => {
  setSubmitting(true);
  try {
+  if (profile?.track === 'university') {
+    const { data: existingSems } = await supabase.from('semesters').select('id').eq('student_id', userId).limit(1);
+    if (!existingSems || existingSems.length === 0) {
+       await supabase.from('semesters').insert({
+         student_id: userId,
+         level_year: profile.level_year || 1,
+         semester_number: 1,
+         is_current: true
+       });
+    }
+  }
+
  const { error } = await supabase.from('student_profiles').update({
  learning_style_set_at: new Date().toISOString()
  }).eq('id', userId);

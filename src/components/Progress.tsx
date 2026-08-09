@@ -256,8 +256,8 @@ export function Progress({ userId }: { userId: string }) {
                     <span className="font-bold font-mono text-success bg-success/10 px-3 py-1 rounded-full text-sm">{t.percent}%</span>
                  </div>
              )) : (
-                 <div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">
-                    Take more quizzes to identify your strengths.
+                 <div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm font-medium text-slate-500">
+                    Not enough quiz data yet to calculate strengths.
                  </div>
              )}
           </div>
@@ -278,8 +278,8 @@ export function Progress({ userId }: { userId: string }) {
                     )}
                  </div>
              )) : (
-                 <div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">
-                    No data available.
+                 <div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm font-medium text-slate-500">
+                    Not enough quiz data yet to calculate weaknesses.
                  </div>
              )}
           </div>

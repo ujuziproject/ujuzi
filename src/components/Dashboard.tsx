@@ -61,11 +61,7 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
         if (cached.quizAverage !== undefined) setQuizAverage(cached.quizAverage);
         if (cached.weeklyMinutes !== undefined) setWeeklyMinutes(cached.weeklyMinutes);
         
-        if (cached.curricula.length === 0) {
-            setView('upload');
-        } else {
-            setView('home');
-        }
+        setView('home');
         // Fetch in background
         fetchData();
         return;
@@ -80,30 +76,26 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
     const { data: profile } = await supabase.from('student_profiles').select('track').eq('id', userId).single();
     const track = profile?.track || 'secondary';
 
-    let fetchedCourses: any[] = [];
-    if (track === 'university') {
-        const { data: sems } = await supabase.from('semesters').select('id').eq('student_id', userId);
-        if (sems && sems.length > 0) {
-            const { data: cs } = await supabase.from('courses').select('id, course_title, semester_id').in('semester_id', sems.map(s => s.id));
-            if (cs) {
-                fetchedCourses = cs.map(c => ({ id: c.id, title: c.course_title, type: 'course', parent_id: c.semester_id }));
-            }
-        }
-    } else if (track === 'independent') {
-        const { data: goals } = await supabase.from('learning_goals').select('id').eq('student_id', userId);
-        if (goals && goals.length > 0) {
-            const { data: cs } = await supabase.from('courses').select('id, course_title, goal_id').in('goal_id', goals.map(g => g.id));
-            if (cs) {
-                fetchedCourses = cs.map(c => ({ id: c.id, title: c.course_title, type: 'course', parent_id: c.goal_id }));
-            }
-        }
-    } else {
-        const { data: currs } = await supabase.from('curricula').select('id, title, status, student_id').eq('student_id', userId).order('created_at', { ascending: false });
-        if (currs) {
-            fetchedCourses = currs.map(c => ({ id: c.id, title: c.title, type: 'curriculum', parent_id: c.id }));
-        }
+    const currsList: any[] = [];
+    // Fetch all semesters
+    const { data: sems } = await supabase.from('semesters').select('id, level_year, semester_number').eq('student_id', userId);
+    if (sems && sems.length > 0) {
+      const { data: cs } = await supabase.from('courses').select('id, course_title, semester_id').in('semester_id', sems.map(s => s.id));
+      if (cs) currsList.push(...cs.map(c => ({ id: c.id, title: c.course_title, type: 'course', parent_id: c.semester_id, desc: `Semester ${sems.find(s=>s.id===c.semester_id)?.semester_number || ''}` })));
     }
-    const currsList = fetchedCourses;
+    
+    // Fetch all goals
+    const { data: goals } = await supabase.from('learning_goals').select('id, goal_title').eq('student_id', userId);
+    if (goals && goals.length > 0) {
+      const { data: cs } = await supabase.from('courses').select('id, course_title, goal_id').in('goal_id', goals.map(g => g.id));
+      if (cs) currsList.push(...cs.map(c => ({ id: c.id, title: c.course_title, type: 'course', parent_id: c.goal_id, desc: `Goal: ${goals.find(g=>g.id===c.goal_id)?.goal_title || ''}` })));
+    }
+    
+    // Fetch standalone curricula
+    const { data: currs } = await supabase.from('curricula').select('id, title').eq('student_id', userId);
+    if (currs && currs.length > 0) {
+      currsList.push(...currs.map(c => ({ id: c.id, title: c.title, type: 'curriculum', parent_id: c.id, desc: 'Subject' })));
+    }
     
     // Fetch topics count and progress for each
     const enrichedCurricula = await Promise.all(currsList.map(async (c) => {
@@ -266,11 +258,7 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
 
     dashboardCache.set(userId, { curricula: enrichedCurricula, totalTopics: totalT, totalQuizzes: quizCount || 0, streak: streakData?.current_streak || 0, masteryStats: newMastery, recentSessions: formattedRecentSessions, recommendations: recs });
 
-    if (currsList.length === 0) {
-      setView('upload');
-    } else {
-      setView('home');
-    }
+    setView('home');
   };
 
   useEffect(() => {
@@ -385,63 +373,59 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
     <div className="w-full animate-in fade-in duration-500">
       
       {/* Hero section */}
-      {(totalTopics > 0 || curricula.length > 0) ? (
-        <div className="bg-gradient-to-br from-[#110B30] to-[#1A114D] rounded-3xl p-8 md:p-11 mb-6 relative overflow-hidden text-white shadow-sm">
-           <div className="relative z-10 flex flex-col items-start">
-              <div className="inline-flex items-center gap-2 bg-accent-warm/15 border border-[#F5A623]/25 text-[#F5A623] px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold mb-4 backdrop-blur-sm">
-                 {isPlanUpToDate ? "✦ Your plan is up to date" : "✦ You have tasks pending today"}
-              </div>
-              
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-                 Welcome back, <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#F5A623] to-[#E85D8F]">{firstName}</span>.
-              </h1>
-              
-              <p className="text-white/70 text-[15px] mb-6 max-w-xl">
-                 {nextUpText}
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-3">
-                 <button onClick={() => {
-                   const firstPending = plannerItems.find(i => !i.completed);
-                   if (firstPending && firstPending.topic_id) {
-                     setInitialTopicId(firstPending.topic_id);
-                     setView('curriculum');
-                   } else if (mostActiveCourse) {
-                     setDashboardCourseId(mostActiveCourse.id);
-                     setDashboardCurriculumId(mostActiveCourse.id);
-                     setView('courseDetail');
-                   }
-                 }} className="bg-accent text-white px-6 py-3.5 rounded-full font-semibold text-[14.5px] flex items-center gap-2 hover:bg-accent/90 transition-colors shadow-[0_8px_22px_-6px_rgba(91,79,232,0.55)]">
-                   <Play className="w-[18px] h-[18px] fill-current" /> Start today's session
-                 </button>
-                 <button onClick={() => { document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} className="bg-transparent text-white border-2 border-white/25 px-6 py-[12px] rounded-full font-semibold text-[14.5px] flex items-center gap-2 hover:bg-white/10 transition-colors">
-                   Adjust plan <ArrowRight className="w-4 h-4" />
-                 </button>
-              </div>
-           </div>
-           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-[#5B4FE8]/20 to-[#9B5DE8]/20 blur-3xl rounded-full translate-x-1/4 -translate-y-1/4 pointer-events-none"></div>
-        </div>
-      ) : (
-        <div className="bg-surface-alt rounded-[32px] border border-border p-10 md:p-12 mb-8 shadow-sm text-center md:text-left flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-1">
-                <h2 className="text-3xl font-bold text-ink mb-4 font-display tracking-tight">Let's get started with your learning journey</h2>
-                <p className="text-slate-500 mb-8 max-w-2xl leading-relaxed text-[15px]">
-                    Your dashboard is looking a little empty. Follow these simple steps to start turning your study materials into interactive, AI-powered learning experiences.
-                </p>
-                <button 
+      
+      <div className="bg-gradient-to-br from-[#110B30] to-[#1A114D] rounded-3xl p-8 md:p-11 mb-6 relative overflow-hidden text-white shadow-sm">
+         <div className="relative z-10 flex flex-col items-start">
+            <div className="inline-flex items-center gap-2 bg-accent-warm/15 border border-[#F5A623]/25 text-[#F5A623] px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold mb-4 backdrop-blur-sm">
+               {totalTopics > 0 || curricula.length > 0 
+                 ? (isPlanUpToDate ? "✦ Your plan is up to date" : "✦ You have tasks pending today")
+                 : "✦ Ready to start"}
+            </div>
+               
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+               {totalTopics > 0 || curricula.length > 0 ? 'Welcome back' : 'Welcome to uJuzi'}, <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#F5A623] to-[#E85D8F]">{firstName}</span>.
+            </h1>
+               
+            <p className="text-white/70 text-[15px] mb-6 max-w-xl">
+               {totalTopics > 0 || curricula.length > 0 
+                 ? nextUpText
+                 : "Your dashboard is looking a little empty. Follow these simple steps to start turning your study materials into interactive, AI-powered learning experiences."}
+            </p>
+               
+            <div className="flex flex-wrap items-center gap-3">
+               {(totalTopics > 0 || curricula.length > 0) ? (
+                 <>
+                   <button onClick={() => {
+                     const firstPending = plannerItems.find(i => !i.completed);
+                     if (firstPending && firstPending.topic_id) {
+                       setInitialTopicId(firstPending.topic_id);
+                       setView('curriculum');
+                     } else if (mostActiveCourse) {
+                       setDashboardCourseId(mostActiveCourse.id);
+                       setDashboardCurriculumId(mostActiveCourse.id);
+                       setView('courseDetail');
+                     }
+                   }} className="bg-accent text-white px-6 py-3.5 rounded-full font-semibold text-[14.5px] flex items-center gap-2 hover:bg-accent/90 transition-colors shadow-[0_8px_22px_-6px_rgba(91,79,232,0.55)]">
+                     <Play className="w-[18px] h-[18px] fill-current" /> Start today's session
+                   </button>
+                   <button onClick={() => { document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} className="bg-transparent text-white border-2 border-white/25 px-6 py-[12px] rounded-full font-semibold text-[14.5px] flex items-center gap-2 hover:bg-white/10 transition-colors">
+                     Adjust plan <ArrowRight className="w-4 h-4" />
+                   </button>
+                 </>
+               ) : (
+                 <button 
                   onClick={() => setView('upload')}
-                  className="px-6 py-3.5 rounded-full bg-accent text-white text-[14.5px] font-semibold hover:bg-accent/90 flex items-center gap-2 transition-colors shadow-[0_8px_16px_-6px_rgba(91,79,232,0.5)]"
-                >
-                  <Plus className="w-4 h-4" /> Add Materials
-                </button>
+                  className="bg-accent text-white px-6 py-3.5 rounded-full font-semibold text-[14.5px] flex items-center gap-2 hover:bg-accent/90 transition-colors shadow-[0_8px_22px_-6px_rgba(91,79,232,0.55)]"
+                 >
+                   <Plus className="w-[18px] h-[18px] fill-current" /> Add Materials
+                 </button>
+               )}
             </div>
-            <div className="w-full md:w-1/3 aspect-square bg-slate-100 rounded-3xl flex items-center justify-center p-8 shrink-0">
-               <Folder className="w-16 h-16 text-slate-300" />
-            </div>
-        </div>
-      )}
-
-      {/* Stats Cards */}
+         </div>
+         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-[#5B4FE8]/20 to-[#9B5DE8]/20 blur-3xl rounded-full translate-x-1/4 -translate-y-1/4 pointer-events-none"></div>
+      </div>
+      
+{/* Stats Cards */}
       {(totalTopics > 0 || curricula.length > 0) && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#FDF1DC] dark:bg-accent-warm/15 rounded-[18px] p-5 flex flex-col">
@@ -503,7 +487,7 @@ export function Dashboard({ name, userId, track, onNavigate }: DashboardProps & 
                       <div className="flex justify-between items-start mb-3">
                          <div>
                             <h4 className="font-display font-semibold text-[16px] mb-1 group-hover:text-[#5B4FE8] transition-colors">{c.title}</h4>
-                            <div className="text-[12.5px] text-ink/60">Next: Continue learning</div>
+                            <div className="text-[12.5px] text-ink/60">Next: {c.nextTopic}</div>
                          </div>
                          <div className="font-mono font-semibold text-[14px] text-[#5B4FE8]">{c.progress}%</div>
                       </div>

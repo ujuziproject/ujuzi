@@ -1,9 +1,11 @@
 import fs from 'fs';
-let p = fs.readFileSync('src/components/Progress.tsx', 'utf-8');
-
-p = p.replace(
-  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">\\n                    Start learning to see your focus areas.\\n                 </div>',
-  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">\\n                    Take more quizzes to identify your focus areas.\\n                 </div>'
+let m = fs.readFileSync('src/components/Progress.tsx', 'utf-8');
+m = m.replace(
+  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">\n                    Take more quizzes to identify your strengths.\n                 </div>',
+  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm font-medium text-slate-500">\n                    Not enough quiz data yet to calculate strengths.\n                 </div>'
 );
-
-fs.writeFileSync('src/components/Progress.tsx', p);
+m = m.replace(
+  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm text-slate-500">\n                    No data available.\n                 </div>',
+  '<div className="p-6 bg-surface border border-border rounded-2xl text-center text-sm font-medium text-slate-500">\n                    Not enough quiz data yet to calculate weaknesses.\n                 </div>'
+);
+fs.writeFileSync('src/components/Progress.tsx', m);

@@ -12,41 +12,43 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
   useEffect(() => {
     async function fetchCourses() {
       // Fetch user profile to know track
+      
       const { data: profile } = await supabase.from('student_profiles').select('track').eq('id', userId).single();
       const currentTrack = profile?.track || 'secondary';
       setTrack(currentTrack);
 
       let fetchedCourses: any[] = [];
-      if (currentTrack === 'university') {
-        const { data: sems } = await supabase.from('semesters').select('id, level_year, semester_number').eq('student_id', userId);
-        if (sems && sems.length > 0) {
-          const { data: cs } = await supabase.from('courses').select('*').in('semester_id', sems.map(s => s.id));
-          if (cs) {
-            fetchedCourses = cs.map(c => ({
-              id: c.id, title: c.course_title, type: 'course', parent_id: c.semester_id,
-              desc: `Semester ${sems.find(s=>s.id===c.semester_id)?.semester_number || ''}`
-            }));
-          }
-        }
-      } else if (currentTrack === 'independent') {
-        const { data: goals } = await supabase.from('learning_goals').select('id, goal_title').eq('student_id', userId);
-        if (goals && goals.length > 0) {
-          const { data: cs } = await supabase.from('courses').select('*').in('goal_id', goals.map(g => g.id));
-          if (cs) {
-            fetchedCourses = cs.map(c => ({
-              id: c.id, title: c.course_title, type: 'course', parent_id: c.goal_id,
-              desc: `Goal: ${goals.find(g=>g.id===c.goal_id)?.goal_title || ''}`
-            }));
-          }
-        }
-      } else {
-        const { data: currs } = await supabase.from('curricula').select('*').eq('student_id', userId);
-        if (currs) {
-          fetchedCourses = currs.map(c => ({ id: c.id, title: c.title, type: 'curriculum', parent_id: c.id, desc: 'Curriculum' }));
+      
+      // Fetch all semesters
+      const { data: sems } = await supabase.from('semesters').select('id, level_year, semester_number').eq('student_id', userId);
+      if (sems && sems.length > 0) {
+        const { data: cs } = await supabase.from('courses').select('*').in('semester_id', sems.map(s => s.id));
+        if (cs) {
+          fetchedCourses.push(...cs.map(c => ({
+            id: c.id, title: c.course_title, type: 'course', parent_id: c.semester_id,
+            desc: `Semester ${sems.find(s=>s.id===c.semester_id)?.semester_number || ''}`
+          })));
         }
       }
-
-      // get topics for progress
+      
+      // Fetch all goals
+      const { data: goals } = await supabase.from('learning_goals').select('id, goal_title').eq('student_id', userId);
+      if (goals && goals.length > 0) {
+        const { data: cs } = await supabase.from('courses').select('*').in('goal_id', goals.map(g => g.id));
+        if (cs) {
+          fetchedCourses.push(...cs.map(c => ({
+            id: c.id, title: c.course_title, type: 'course', parent_id: c.goal_id,
+            desc: `Goal: ${goals.find(g=>g.id===c.goal_id)?.goal_title || ''}`
+          })));
+        }
+      }
+      
+      // Fetch standalone curricula
+      const { data: currs } = await supabase.from('curricula').select('*').eq('student_id', userId);
+      if (currs && currs.length > 0) {
+        fetchedCourses.push(...currs.map(c => ({ id: c.id, title: c.title, type: 'curriculum', parent_id: c.id, desc: 'Subject' })));
+      }
+// get topics for progress
       const courseProgress = await Promise.all(fetchedCourses.map(async (c) => {
         let topicQuery = supabase.from('topics').select('id, title').order('order_index', { ascending: true });
         if (c.type === 'course') topicQuery = topicQuery.eq('course_id', c.id);
@@ -117,7 +119,7 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
             <p className="text-white/70">Pick up exactly where you left off — progress syncs across notes, flashcards and quizzes.</p>
           </div>
           <button onClick={() => { onNavigate('dashboard'); setDashboardView('upload'); }} className="bg-white text-ink px-5 py-2.5 rounded-full font-semibold text-[14px] hover:bg-white/90 transition-colors shadow-sm hidden md:flex items-center gap-1.5 shrink-0 z-20 relative">
-            {track === 'university' ? '+ Create Semester' : track === 'independent' ? '+ Create Goal' : '+ Add Subject'}
+            + Add Course
           </button>
         </div>
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#5B4FE8]/20 blur-3xl rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
@@ -143,7 +145,7 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
               <div className="h-2 rounded-full bg-ink/5 overflow-hidden mb-3">
                  <div className={`h-full ${barClass} rounded-full`} style={{ width: `${c.progress}%` }}></div>
               </div>
-              <div className="text-[13px] text-ink"><strong>Next:</strong> {c.nextTopic || 'Ready to start'}</div>
+              <div className="text-[13px] text-ink"><strong>Next:</strong> {c.nextTopic || 'Not started yet'}</div>
             </div>
           );
         })}
