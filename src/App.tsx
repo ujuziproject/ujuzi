@@ -183,10 +183,10 @@ export default function App() {
     );
   }
 
-  if (step === 'about') return <AboutPage onBack={() => setStep(-1)} />;
-  if (step === 'contact') return <ContactPage onBack={() => setStep(-1)} />;
-  if (step === 'terms') return <TermsPage onBack={() => setStep(-1)} />;
-  if (step === 'privacy') return <PrivacyPage onBack={() => setStep(-1)} />;
+  if (step === 'about') return <AboutPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
+  if (step === 'contact') return <ContactPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
+  if (step === 'terms') return <TermsPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
+  if (step === 'privacy') return <PrivacyPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
 
   if (step === -1) {
     return <LandingPage onLogin={() => setStep(0)} onGetStarted={() => setStep(1)} onNavigate={(page) => setStep(page)} />;
@@ -209,7 +209,7 @@ export default function App() {
             
             <div className="shrink-0 mb-12 mt-8">
                <button 
-                 onClick={() => setStep(Math.max(1, step - 1))}
+                 onClick={() => setStep(Math.max(1, typeof step === 'number' ? step - 1 : 1))}
                  className={`text-white text-xs font-bold tracking-wider flex items-center gap-2 hover:opacity-80 transition-opacity mb-12 ${step === 1 ? 'opacity-0 pointer-events-none' : ''}`}
                >
                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
@@ -232,7 +232,7 @@ export default function App() {
                   { id: 5, label: "LEARNING STYLE" }
                 ].map((s) => {
                   const isCurrent = step === s.id;
-                  const isPast = step > s.id;
+                  const isPast = typeof step === 'number' && step > s.id;
                   return (
                     <div key={s.id} className={cn("flex items-center gap-5 transition-all duration-300", (isCurrent || isPast) ? "opacity-100" : "opacity-40")}>
                       <div className={cn(
@@ -262,14 +262,14 @@ export default function App() {
             <span className="text-xl font-bold tracking-tight font-display text-white">uJuzi</span>
           </button>
           {userId ? (
-            <button onClick={handleLogOut} className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-widest">{step >= 2 && step <= 6 ? 'Save & Log out' : 'Log Out'}</button>
+            <button onClick={handleLogOut} className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-widest">{typeof step === 'number' && step >= 2 && step <= 6 ? 'Save & Log out' : 'Log Out'}</button>
           ) : (
             <button onClick={() => setStep('contact')} className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-widest">Help</button>
           )}
         </div>
         <div className="hidden md:flex h-20 border-b border-border bg-surface px-6 md:px-12 items-center justify-end shrink-0">
           {userId ? (
-            <button onClick={handleLogOut} className="text-[11px] font-bold text-slate-400 hover:text-accent transition-colors uppercase tracking-widest">{step >= 2 && step <= 6 ? 'Save & Log out' : 'Log Out'}</button>
+            <button onClick={handleLogOut} className="text-[11px] font-bold text-slate-400 hover:text-accent transition-colors uppercase tracking-widest">{typeof step === 'number' && step >= 2 && step <= 6 ? 'Save & Log out' : 'Log Out'}</button>
           ) : (
             <button onClick={() => setStep('contact')} className="text-[11px] font-bold text-slate-400 hover:text-accent transition-colors uppercase tracking-widest">Help</button>
           )}

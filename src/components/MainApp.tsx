@@ -1,12 +1,14 @@
+import MyCourses from './MyCourses';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Dashboard } from './Dashboard';
+import { FlashcardReviewer } from './FlashcardReviewer';
 import { MyCurricula } from './MyCurricula';
 import { MySemesters } from './MySemesters';
 import { MyGoals } from './MyGoals';
 import { Progress } from './Progress';
 import { Profile } from './Profile';
-import { Loader2, LayoutGrid, Folder, TrendingUp, Settings, LogOut, ChevronRight, Moon, Sun } from 'lucide-react';
+import { Loader2, LayoutGrid, Folder, TrendingUp, Settings, LogOut, ChevronRight, Moon, Sun, Search, Bell, Library, CheckSquare, Calendar, BookOpen, Activity } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { cn } from '../lib/utils';
 
@@ -21,14 +23,15 @@ function SidebarItem({ active, icon, label, onClick }: any) {
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-4 px-5 py-4 rounded-2xl text-base font-bold transition-all w-full text-left font-display",
+        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14.5px] font-medium transition-all w-full text-left relative",
         active 
-          ? "bg-accent-warm border border-ink text-ink shadow-[2px_2px_0px_#111]" 
-          : "text-slate-500 hover:text-ink hover:bg-surface border border-transparent"
+          ? "bg-white dark:bg-accent text-ink dark:text-white font-semibold" 
+          : "text-white/70 hover:bg-white/5 hover:text-white"
       )}
     >
-      <span className={active ? "text-ink" : "text-slate-400"}>{icon}</span>
+      <span className={active ? "" : "opacity-70"}>{icon}</span>
       {label}
+      {active && <span className="absolute right-3.5 w-1.5 h-1.5 rounded-full bg-[#F5A623]"></span>}
     </button>
   );
 }
@@ -58,11 +61,12 @@ export function useNavigationStore() {
 
 export function MainApp({ name, userId, onLogout }: MainAppProps) {
   const { theme, toggleTheme } = useTheme();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'curricula' | 'progress' | 'profile'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'courses' | 'flashcards' | 'quizzes' | 'planner' | 'curricula' | 'progress' | 'profile'>('dashboard');
   const [aiInsight, setAiInsight] = useState('Upload a curriculum to get your first personalized study plan and start tracking your progress.');
   const [learnerBadge, setLearnerBadge] = useState('Fresh Start');
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState('secondary');
+  const [streakDays, setStreakDays] = useState(0);
   const [dashboardView, setDashboardView] = useState<'loading' | 'home' | 'upload' | 'curriculum' | 'semesterDetail' | 'courseDetail' | 'goalDetail'>('loading');
   const [dashboardCurriculumId, setDashboardCurriculumId] = useState<string | null>(null);
   const [dashboardSemesterId, setDashboardSemesterId] = useState<string | null>(null);
@@ -84,6 +88,7 @@ export function MainApp({ name, userId, onLogout }: MainAppProps) {
       if (profileRes.data?.track) setTrack(profileRes.data.track);
 
       const streakDays = streaksRes.data?.current_streak || 0;
+      setStreakDays(streakDays);
       const quizzes = quizRes.count || 0;
       const flashcards = flashcardRes.count || 0;
       const interests = interestRes.count || 0;
@@ -163,70 +168,74 @@ export function MainApp({ name, userId, onLogout }: MainAppProps) {
       dashboardCourseId, setDashboardCourseId,
       dashboardTopicId, setDashboardTopicId
     }}>
-    <div className="flex flex-col min-h-screen bg-surface font-sans text-ink">
-      {/* Top Navbar Container */}
-      <div className="p-4 md:p-6 pb-0 max-w-[1400px] mx-auto w-full">
-        <div className="bg-surface-alt rounded-full px-6 py-4 flex items-center justify-between shadow-sm border border-border">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <span className="font-black text-2xl tracking-tight leading-none text-ink font-display">uJuzi</span>
-          </div>
-
-          {/* Center Nav */}
-          <div className="hidden md:flex flex-1 items-center justify-center font-bold text-sm text-ink font-display">
-            {/* Nav items removed */}
-          </div>
-
-          {/* Right items */}
-          <div className="flex items-center gap-4 md:gap-6">
-            <button onClick={toggleTheme} className="hidden md:block text-ink hover:text-accent transition-colors">
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-            <div className="hidden md:flex items-center gap-3 bg-accent-warm px-4 py-1.5 rounded-full border border-ink shadow-[2px_2px_0px_#111] cursor-pointer hover:bg-accent-warm/80 transition-colors" onClick={() => setCurrentView('profile')}>
-              <div className="flex flex-col text-right">
-                <span className="text-[10px] font-black uppercase text-ink leading-tight">{name}</span>
-                <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-sm uppercase tracking-wider">{learnerBadge}</span>
-              </div>
-            </div>
-            <button onClick={() => setCurrentView('profile')} className="h-10 w-10 bg-accent text-white rounded-full flex items-center justify-center font-bold text-lg font-display shrink-0 border-2 border-white shadow-sm hover:scale-105 transition-transform cursor-pointer">
-              {name.charAt(0).toUpperCase()}
-            </button>
-            <button onClick={onLogout} className="text-ink hover:text-accent transition-colors md:ml-2"><LogOut className="w-5 h-5" /></button>
-          </div>
+    <div className="flex min-h-screen bg-surface font-sans text-ink">
+      {/* Left Sidebar */}
+      <div className="w-[236px] shrink-0 h-screen sticky top-0 bg-ink dark:bg-surface-alt text-white flex flex-col p-4 md:p-6">
+        <div className="flex items-center gap-2.5 px-2.5 pb-7 font-bold text-lg font-display">
+           <div className="w-[30px] h-[30px] rounded-lg bg-gradient-to-br from-[#5B4FE8] to-[#7C6FF0] flex items-center justify-center font-bold text-[13px]">uJ</div>
+           uJuzi
+        </div>
+        
+        <nav className="flex flex-col gap-1 flex-1">
+           <SidebarItem active={currentView === 'dashboard'} icon={<LayoutGrid className="w-[18px] h-[18px]" />} label="Overview" onClick={() => { setCurrentView('dashboard'); setDashboardView('home'); }} />
+           <SidebarItem active={currentView === 'courses'} icon={<BookOpen className="w-[18px] h-[18px]" />} label="Courses" onClick={() => setCurrentView('courses')} />
+           <SidebarItem active={currentView === 'flashcards'} icon={<Library className="w-[18px] h-[18px]" />} label="Flashcards" onClick={() => setCurrentView('flashcards')} />
+           <SidebarItem active={currentView === 'quizzes'} icon={<CheckSquare className="w-[18px] h-[18px]" />} label="Quizzes" onClick={() => setCurrentView('quizzes')} />
+           <SidebarItem active={currentView === 'progress'} icon={<Activity className="w-[18px] h-[18px]" />} label="Progress" onClick={() => setCurrentView('progress')} />
+           <SidebarItem active={currentView === 'planner'} icon={<Calendar className="w-[18px] h-[18px]" />} label="Planner" onClick={() => setCurrentView('planner')} />
+           <SidebarItem active={currentView === 'profile'} icon={<Settings className="w-[18px] h-[18px]" />} label="Settings" onClick={() => setCurrentView('profile')} />
+           <SidebarItem active={false} icon={<LogOut className="w-[18px] h-[18px]" />} label="Log Out" onClick={onLogout} />
+        </nav>
+        
+        <div className="bg-[#FDF1DC] dark:bg-[#F5A623]/15 rounded-2xl p-4 mt-4 text-ink">
+           <div className="font-mono text-[10px] uppercase tracking-widest text-ink/55 mb-1.5">Streak</div>
+           <div className="font-display font-bold text-lg">🔥 {streakDays} days</div>
+           <div className="text-xs text-ink/60 mt-1">Keep it alive — 20 min today.</div>
         </div>
       </div>
 
-      <div className="flex-1 max-w-[1400px] mx-auto w-full p-4 md:p-6 flex flex-col md:flex-row gap-6 lg:gap-10">
-        {/* Sidebar */}
-        <div className="w-full md:w-[280px] shrink-0">
-          <div className="bg-surface-alt rounded-[2rem] p-6 shadow-sm border border-border min-h-[500px] flex flex-col h-full sticky top-6">
-            <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-6 px-2 font-display">My Learning</h3>
-            
-            <nav className="flex flex-col gap-3">
-              <SidebarItem active={currentView === 'dashboard'} icon={<LayoutGrid className="w-5 h-5" />} label="Dashboard" onClick={() => { setCurrentView('dashboard'); setDashboardView('home'); }} />
-              <SidebarItem active={currentView === 'curricula'} icon={<Folder className="w-5 h-5" />} label={track === 'university' ? 'Semesters' : track === 'independent' ? 'My Goals' : 'Curricula'} onClick={() => setCurrentView('curricula')} />
-              <SidebarItem active={currentView === 'progress'} icon={<TrendingUp className="w-5 h-5" />} label="Progress" onClick={() => setCurrentView('progress')} />
-              <SidebarItem active={currentView === 'profile'} icon={<Settings className="w-5 h-5" />} label="Settings" onClick={() => setCurrentView('profile')} />
-            </nav>
+      {/* Main Right Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Header */}
+        <header className="h-[76px] px-8 flex items-center gap-4 sticky top-0 z-10 bg-surface-alt border-b border-border">
+           <div className="flex-1 max-w-[520px] flex items-center gap-2.5 bg-surface border border-border rounded-xl px-4 py-2.5 text-slate-500 text-sm">
+              <Search className="w-4 h-4" /> Search topics, courses, flashcards... 
+              <div className="ml-auto font-mono text-[11px] bg-surface-alt border border-border rounded-md px-1.5 py-0.5">⌘K</div>
+           </div>
+           
+           <div className="flex-1"></div>
+           <button onClick={() => {
+             document.documentElement.classList.toggle('dark');
+             const isDark = document.documentElement.classList.contains('dark');
+             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+             // We could dispatch an event or just let it be, the CSS handles it
+           }} className="w-10 h-10 rounded-full border border-border bg-surface-alt flex items-center justify-center text-slate-600 dark:text-slate-300 relative cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+             <svg className="w-[18px] h-[18px] block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+             <svg className="w-[18px] h-[18px] hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+           </button>
+           
+           <button className="w-10 h-10 rounded-full border border-border bg-surface-alt flex items-center justify-center text-slate-600 relative cursor-pointer">
+             <Bell className="w-[18px] h-[18px]" />
+             <span className="absolute top-2 right-2.5 w-[7px] h-[7px] bg-[#F5A623] rounded-full"></span>
+           </button>
+           
+           <button onClick={() => setCurrentView('profile')} className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B4FE8] to-[#7C6FF0] text-white flex items-center justify-center font-semibold text-[13px] cursor-pointer">
+             {name ? name.charAt(0).toUpperCase() : 'U'}
+           </button>
+        </header>
 
-            <div className="mt-auto pt-8">
-              <div className="bg-surface-alt rounded-2xl p-5 border border-border text-center md:text-left">
-                <div className="text-xs font-black text-accent uppercase tracking-wider mb-2 font-display">AI Insight</div>
-                <p className="text-sm font-semibold text-ink leading-snug">{aiInsight}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 min-w-0 pb-20">
+        {/* Content Area */}
+        <main className="flex-1 p-8 max-w-[1240px] w-full">
           {currentView === 'dashboard' && <Dashboard name={name} userId={userId} track={track} onNavigate={setCurrentView} />}
+          {currentView === 'courses' && <MyCourses userId={userId} onNavigate={setCurrentView} />}
           {currentView === 'curricula' && track === 'university' && <MySemesters userId={userId} />}
           {currentView === 'curricula' && track === 'independent' && <MyGoals userId={userId} />}
           {currentView === 'curricula' && track === 'secondary' && <MyCurricula userId={userId} />}
+          {currentView === 'flashcards' && <FlashcardReviewer userId={userId} flashcards={[]} />}
+          {currentView === 'progress' && <Progress userId={userId} />}
           {currentView === 'progress' && <Progress userId={userId} />}
           {currentView === 'profile' && <Profile userId={userId} />}
-        </div>
+        </main>
       </div>
     </div>
     </NavigationContext.Provider>

@@ -12,6 +12,15 @@ export function UniversityDropdown({ value, onChange, className }: UniversityDro
   const [universities, setUniversities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  useEffect(() => {
+    if (value && universities.length > 0) {
+      const u = universities.find(x => x.id === value);
+      if (u) setSearchTerm(u.name);
+    } else if (!value) {
+      setSearchTerm('');
+    }
+  }, [value, universities]);
+  
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -24,14 +33,6 @@ export function UniversityDropdown({ value, onChange, className }: UniversityDro
     fetchUnis();
   }, []);
 
-  useEffect(() => {
-    if (value && universities.length > 0) {
-      const selected = universities.find(u => u.id === value);
-      if (selected) {
-        setSearchTerm(selected.name);
-      }
-    }
-  }, [value, universities]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

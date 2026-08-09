@@ -1,14 +1,6 @@
+import fs from 'fs';
 
-import React, { useState } from 'react';
-
-interface PageProps {
-  onBack: () => void;
-  onNavigate: (page: string) => void;
-}
-
-export const AboutPage = ({ onBack, onNavigate }: PageProps) => (
-  <div className="landing-page">
-    
+const nav = `
 <nav>
   <div className="nav-pill">
     <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
@@ -25,7 +17,59 @@ export const AboutPage = ({ onBack, onNavigate }: PageProps) => (
     </div>
   </div>
 </nav>
+`;
 
+const footer = `
+<footer>
+  <div className="wrap">
+    <div className="footer-grid">
+      <div className="footer-brand">
+        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
+        <p>AI-personalized study plans built from your real curriculum — for WAEC, JAMB, university and independent learners across Nigeria.</p>
+      </div>
+      <div className="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a></li>
+        </ul>
+      </div>
+      <div className="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('about'); }}>About</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('contact'); }}>Contact</a></li>
+        </ul>
+      </div>
+      <div className="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }}>Terms of Service</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }}>Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div className="footer-bottom">
+      <span>© {new Date().getFullYear()} uJuzi. Built for the next generation of Nigerian learners.</span>
+      <span>Made in Lagos 🇳🇬</span>
+    </div>
+  </div>
+</footer>
+`;
+
+const content = `
+import React, { useState } from 'react';
+
+interface PageProps {
+  onBack: () => void;
+  onNavigate: (page: string) => void;
+}
+
+export const AboutPage = ({ onBack, onNavigate }: PageProps) => (
+  <div className="landing-page">
+    ${nav}
     
     <section className="page-hero" style={{ paddingBottom: '60px' }}>
       <div className="wrap">
@@ -91,45 +135,7 @@ export const AboutPage = ({ onBack, onNavigate }: PageProps) => (
       </div>
     </section>
 
-    
-<footer>
-  <div className="wrap">
-    <div className="footer-grid">
-      <div className="footer-brand">
-        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-        <p>AI-personalized study plans built from your real curriculum — for WAEC, JAMB, university and independent learners across Nigeria.</p>
-      </div>
-      <div className="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('about'); }}>About</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('contact'); }}>Contact</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Legal</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }}>Terms of Service</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }}>Privacy Policy</a></li>
-        </ul>
-      </div>
-    </div>
-    <div className="footer-bottom">
-      <span>© {new Date().getFullYear()} uJuzi. Built for the next generation of Nigerian learners.</span>
-      <span>Made in Lagos 🇳🇬</span>
-    </div>
-  </div>
-</footer>
-
+    ${footer}
   </div>
 );
 
@@ -138,24 +144,7 @@ export const ContactPage = ({ onBack, onNavigate }: PageProps) => {
   
   return (
     <div className="landing-page">
-      
-<nav>
-  <div className="nav-pill">
-    <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-    <div className="nav-links">
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a>
-    </div>
-    <div className="nav-cta">
-      <button className="theme-toggle">🌙</button>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="link-login">Log in</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="pill pill-primary">Get started</a>
-    </div>
-  </div>
-</nav>
-
+      ${nav}
       
       <section className="page-hero" style={{ paddingBottom: '60px' }}>
         <div className="wrap">
@@ -241,69 +230,14 @@ export const ContactPage = ({ onBack, onNavigate }: PageProps) => {
         </div>
       </section>
 
-      
-<footer>
-  <div className="wrap">
-    <div className="footer-grid">
-      <div className="footer-brand">
-        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-        <p>AI-personalized study plans built from your real curriculum — for WAEC, JAMB, university and independent learners across Nigeria.</p>
-      </div>
-      <div className="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('about'); }}>About</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('contact'); }}>Contact</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Legal</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }}>Terms of Service</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }}>Privacy Policy</a></li>
-        </ul>
-      </div>
-    </div>
-    <div className="footer-bottom">
-      <span>© {new Date().getFullYear()} uJuzi. Built for the next generation of Nigerian learners.</span>
-      <span>Made in Lagos 🇳🇬</span>
-    </div>
-  </div>
-</footer>
-
+      ${footer}
     </div>
   );
 };
 
 export const TermsPage = ({ onBack, onNavigate }: PageProps) => (
   <div className="landing-page">
-    
-<nav>
-  <div className="nav-pill">
-    <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-    <div className="nav-links">
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a>
-    </div>
-    <div className="nav-cta">
-      <button className="theme-toggle">🌙</button>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="link-login">Log in</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="pill pill-primary">Get started</a>
-    </div>
-  </div>
-</nav>
-
+    ${nav}
 
     <section className="page-hero" style={{ paddingBottom: '60px' }}>
       <div className="wrap">
@@ -402,68 +336,13 @@ export const TermsPage = ({ onBack, onNavigate }: PageProps) => (
       </div>
     </section>
 
-    
-<footer>
-  <div className="wrap">
-    <div className="footer-grid">
-      <div className="footer-brand">
-        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-        <p>AI-personalized study plans built from your real curriculum — for WAEC, JAMB, university and independent learners across Nigeria.</p>
-      </div>
-      <div className="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('about'); }}>About</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('contact'); }}>Contact</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Legal</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }}>Terms of Service</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }}>Privacy Policy</a></li>
-        </ul>
-      </div>
-    </div>
-    <div className="footer-bottom">
-      <span>© {new Date().getFullYear()} uJuzi. Built for the next generation of Nigerian learners.</span>
-      <span>Made in Lagos 🇳🇬</span>
-    </div>
-  </div>
-</footer>
-
+    ${footer}
   </div>
 );
 
 export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
   <div className="landing-page">
-    
-<nav>
-  <div className="nav-pill">
-    <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-    <div className="nav-links">
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a>
-    </div>
-    <div className="nav-cta">
-      <button className="theme-toggle">🌙</button>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="link-login">Log in</a>
-      <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="pill pill-primary">Get started</a>
-    </div>
-  </div>
-</nav>
-
+    ${nav}
 
     <section className="page-hero" style={{ paddingBottom: '60px' }}>
       <div className="wrap">
@@ -587,44 +466,10 @@ export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
       </div>
     </section>
 
-    
-<footer>
-  <div className="wrap">
-    <div className="footer-grid">
-      <div className="footer-brand">
-        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} className="logo"><div className="logo-mark">uJ</div>uJuzi</a>
-        <p>AI-personalized study plans built from your real curriculum — for WAEC, JAMB, university and independent learners across Nigeria.</p>
-      </div>
-      <div className="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>How it works</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Who it's for</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Features</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>Pricing</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('about'); }}>About</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('contact'); }}>Contact</a></li>
-        </ul>
-      </div>
-      <div className="footer-col">
-        <h4>Legal</h4>
-        <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }}>Terms of Service</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }}>Privacy Policy</a></li>
-        </ul>
-      </div>
-    </div>
-    <div className="footer-bottom">
-      <span>© {new Date().getFullYear()} uJuzi. Built for the next generation of Nigerian learners.</span>
-      <span>Made in Lagos 🇳🇬</span>
-    </div>
-  </div>
-</footer>
-
+    ${footer}
   </div>
 );
+`;
+
+fs.writeFileSync('src/components/StaticPages.tsx', content);
+

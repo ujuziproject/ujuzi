@@ -21,6 +21,7 @@ export interface StudentProfile {
   faculty?: string;
   course_of_study?: string;
   level_year?: number;
+  weekly_goal_minutes?: number;
 }
 
 export interface Interest {
@@ -156,4 +157,16 @@ export interface InterestContent {
   content_url?: string;
   image_url?: string;
   created_at: string;
+}
+
+export interface PlannerItem {
+  id: string;
+  student_id: string;
+  topic_id?: string;
+  item_type: 'flashcards' | 'quiz' | 'notes';
+  title: string;
+  scheduled_date: string;
+  scheduled_time?: string;
+  completed: boolean;
+  completed_at?: string;
 }
