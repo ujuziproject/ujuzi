@@ -113,7 +113,7 @@ export function LandingPage({ onLogin, onGetStarted, onTryIt, onNavigate }: Land
             <p className="hero-sub">Upload your actual curriculum — WAEC, a university course outline, or a certification you're chasing — and uJuzi turns it into notes, flashcards and quizzes built for exactly what you're tested on.</p>
             <div className="hero-ctas">
               <button onClick={onGetStarted} className="pill pill-primary border-none">Get started free →</button>
-              <button onClick={onTryIt} className="pill pill-outline-dark border-none cursor-pointer">Try it now</button>
+              <button onClick={onTryIt} className="pill pill-outline-dark cursor-pointer">Try it now</button>
             </div>
           </div>
           <div className="float-stage">

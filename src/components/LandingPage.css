@@ -77,6 +77,9 @@
 .landing-page .pill:hover { transform: translateY(-1px); }
 .landing-page .pill-primary { background: var(--accent-primary); color: #fff; box-shadow: 0 8px 22px -6px rgba(91,79,232,0.55); }
 .landing-page .pill-outline-light { background: transparent; color: var(--text-primary); border: 1.5px solid var(--border); }
+/* Secondary button for dark backgrounds (hero, final call-to-action) */
+.landing-page .pill-outline-dark { background: rgba(255,255,255,0.06); color: #fff; border: 1.5px solid rgba(255,255,255,0.45); }
+.landing-page .pill-outline-dark:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.7); }
 
 .landing-page nav {
   position: fixed; top: 22px; left: 0; right: 0; z-index: 50; padding: 0 24px;
