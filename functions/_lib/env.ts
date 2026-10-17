@@ -53,5 +53,7 @@ export function errorResponse(err: unknown, fallback: string): Response {
   const e = err as { status?: number; publicMessage?: string; message?: string };
   console.error(fallback, e?.message || err);
   if (e?.status === 429) return json({ error: 'The AI service is busy right now. Please try again in a minute.' }, 503);
-  return json({ error: e?.publicMessage || fallback }, 500);
+  // Include a short technical reason so a screenshot of the error is enough to diagnose it.
+  const detail = (e?.message || String(err || '')).replace(/key=[^&\s]+/gi, 'key=…').slice(0, 200);
+  return json({ error: e?.publicMessage || fallback, detail }, 500);
 }

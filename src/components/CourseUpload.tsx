@@ -2,13 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { authFetch, apiError } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
+import { GenerationIssues } from './GenerationIssues';
+import { generateForTopics } from '../lib/generation';
 import { Loader2, Search } from 'lucide-react';
 
 export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplete }: { userId: string, semesterId?: string, goalId?: string, bulk: boolean, onUploadComplete: () => void }) {
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [text, setText] = useState('');
-  const [status, setStatus] = useState<'idle' | 'parsing' | 'diagnostic' | 'generating' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'parsing' | 'diagnostic' | 'generating' | 'issues' | 'success'>('idle');
+  const [uploadError, setUploadError] = useState('');
+  const [failedTopics, setFailedTopics] = useState<any[]>([]);
+  const [failReason, setFailReason] = useState('');
+  const [generatedTotal, setGeneratedTotal] = useState(0);
   const [savedTopics, setSavedTopics] = useState<any[]>([]);
   const [progressMsg, setProgressMsg] = useState('');
   const [prefs, setPrefs] = useState<{contentFormat?: string, explanationComplexity?: string}>({});
@@ -40,50 +46,13 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
     });
   }, [userId]);
 
-  const generateMaterialsForTopic = async (topic: any) => {
-    try {
-      const matRes = await authFetch('/api/generate-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: topic.title,
-          description: topic.description,
-          subject_name: topic.subject_name,
-          generation_depth: topic.generation_depth,
-          content_format_preference: prefs.contentFormat,
-          explanation_complexity_preference: prefs.explanationComplexity
-        })
-      });
-      
-      if (matRes.ok) {
-        const { result: materials } = await matRes.json();
-        
-        if (materials.lecture_notes) {
-          await supabase.from('lecture_notes').insert({ topic_id: topic.id, content: materials.lecture_notes });
-        }
-        
-        if (materials.flashcards && materials.flashcards.length > 0) {
-          const fcInserts = materials.flashcards.map((fc: any) => ({ topic_id: topic.id, question: fc.question, answer: fc.answer }));
-          await supabase.from('flashcards').insert(fcInserts);
-        }
-        
-        if (materials.quiz && materials.quiz.length > 0) {
-          const { data: quizData } = await supabase.from('quizzes').insert({ topic_id: topic.id, title: `${topic.title} Quiz` }).select().single();
-          if (quizData) {
-            const qInserts = materials.quiz.map((q: any, i: number) => ({
-              quiz_id: quizData.id, question_text: q.question_text, options: q.options || [], correct_answer: q.correct_answer, explanation: q.explanation, order_index: i
-            }));
-            await supabase.from('quiz_questions').insert(qInserts);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Failed material generation for topic", topic.id, err);
-    }
-  };
-
   const handleUpload = async () => {
     if (!text.trim() || (!bulk && !title.trim())) return;
+    if (!semesterId && !goalId) {
+      setUploadError('Choose a semester or goal for this course first.');
+      return;
+    }
+    setUploadError('');
     setStatus('parsing');
     
     let allSavedTopics: any[] = [];
@@ -104,8 +73,9 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
         let completedTopics = 0;
 
         for (const pc of parsedCourses) {
-          const { data: course } = await supabase.from('courses').insert({
-            semester_id: semesterId,
+          const { data: course, error: courseError } = await supabase.from('courses').insert({
+            semester_id: semesterId || null,
+            goal_id: goalId || null,
             course_title: pc.course_title,
             course_code: pc.course_code || null,
             raw_text: text,
@@ -120,10 +90,13 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
               description: t.description,
               order_index: idx
             }));
-            const { data: topicsData } = await supabase.from('topics').insert(topicInserts).select();
+            const { data: topicsData, error: topicsError } = await supabase.from('topics').insert(topicInserts).select();
+            if (topicsError) throw new Error(`Couldn't save topics for ${pc.course_title}: ${topicsError.message}`);
             if (topicsData) {
               allSavedTopics.push(...topicsData);
             }
+          } else {
+            throw new Error(`Couldn't save the course ${pc.course_title}: ${courseError?.message || 'unknown error'}`);
           }
         }
         
@@ -137,8 +110,9 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
         if (!extractRes.ok) throw await apiError(extractRes, 'Topic extraction failed');
         const { result: extractedTopics } = await extractRes.json();
 
-        const { data: course } = await supabase.from('courses').insert({
-          semester_id: semesterId,
+        const { data: course, error: courseError } = await supabase.from('courses').insert({
+          semester_id: semesterId || null,
+          goal_id: goalId || null,
           course_title: title,
           course_code: code,
           raw_text: text,
@@ -153,54 +127,69 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
             description: t.description,
             order_index: idx
           }));
-          const { data: topicsData } = await supabase.from('topics').insert(topicInserts).select();
+          const { data: topicsData, error: topicsError } = await supabase.from('topics').insert(topicInserts).select();
+          if (topicsError) throw new Error(`Couldn't save the topics: ${topicsError.message}`);
           if (topicsData) {
             allSavedTopics.push(...topicsData);
           }
+        } else {
+          throw new Error(`Couldn't save the course: ${courseError?.message || 'unknown error'}`);
         }
       }
-      
+
+      if (allSavedTopics.length === 0) throw new Error('No topics were found in that outline. Try pasting more detail.');
       setSavedTopics(allSavedTopics);
       setStatus('diagnostic');
       
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setUploadError(err?.message || 'Something went wrong. Please try again.');
       setStatus('idle');
     }
   };
 
   const handleDiagnosticComplete = async (topicsWithDepth: any[]) => {
     setStatus('generating');
-    try {
-      let i = 0;
-      for (const topic of topicsWithDepth) {
-        i++;
-        setProgressMsg(`Generating materials for topic ${i} of ${topicsWithDepth.length}...`);
-        await generateMaterialsForTopic(topic);
-      }
-      
-      // Update course status
-      const courseIds = [...new Set(topicsWithDepth.map(t => t.course_id))];
-      for (const cid of courseIds) {
-        if (cid) {
-          await supabase.from('courses').update({ status: 'parsed' }).eq('id', cid);
-        }
-      }
-      
-      try {
-        const { adjustStudyPlan } = await import('../lib/pacing');
-        await adjustStudyPlan(userId, profileData?.track || 'university');
-      } catch (e) {
-        console.error("Error generating study plan", e);
-      }
-      
-      setStatus('success');
-      onUploadComplete();
-    } catch (err) {
-      console.error(err);
-      setStatus('idle');
+    const { failed, firstError } = await generateForTopics(
+      topicsWithDepth,
+      { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
+      (done, total) => setProgressMsg(`Generating materials for topic ${done} of ${total}...`)
+    );
+
+    // Mark courses as parsed and refresh the study plan for whatever succeeded
+    const courseIds = [...new Set(topicsWithDepth.map(t => t.course_id))];
+    for (const cid of courseIds) {
+      if (cid) await supabase.from('courses').update({ status: 'parsed' }).eq('id', cid);
     }
+    try {
+      const { adjustStudyPlan } = await import('../lib/pacing');
+      await adjustStudyPlan(userId, profileData?.track || (goalId ? 'independent' : 'university'));
+    } catch (e) {
+      console.error('Error generating study plan', e);
+    }
+
+    if (failed.length > 0) {
+      setFailedTopics(failed);
+      setFailReason(firstError);
+      setGeneratedTotal(topicsWithDepth.length);
+      setStatus('issues');
+      return;
+    }
+    setStatus('success');
+    onUploadComplete();
   };
+
+  if (status === 'issues') {
+    return (
+      <GenerationIssues
+        total={generatedTotal}
+        failedCount={failedTopics.length}
+        reason={failReason}
+        onRetry={() => handleDiagnosticComplete(failedTopics)}
+        onContinue={() => { setStatus('success'); onUploadComplete(); }}
+      />
+    );
+  }
 
   if (status === 'parsing') {
     return (
@@ -237,6 +226,9 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
       <h2 className="text-2xl font-bold text-ink mb-6 font-display">
         {bulk ? 'Upload Full Semester Outline' : 'Add Single Course'}
       </h2>
+      {uploadError && (
+        <p className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm" role="alert">{uploadError}</p>
+      )}
       
       {!bulk && (
         <div className="grid md:grid-cols-2 gap-4 mb-6">

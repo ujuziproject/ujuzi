@@ -16,7 +16,7 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
 export async function apiError(res: Response, fallback: string): Promise<Error> {
   try {
     const data = await res.clone().json();
-    if (data?.error) return new Error(data.error);
+    if (data?.error) return new Error(data.detail ? `${data.error} (${data.detail})` : data.error);
   } catch {
     // not JSON
   }

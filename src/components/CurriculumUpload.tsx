@@ -5,6 +5,8 @@ import { Loader2, UploadCloud, FileText, CheckCircle2, AlertCircle, Search } fro
 import { cn } from '../lib/utils';
 import { CurriculumResults } from './CurriculumResults';
 import { DiagnosticFlow } from './DiagnosticFlow';
+import { GenerationIssues } from './GenerationIssues';
+import { generateForTopics } from '../lib/generation';
 import { recordActivity } from '../lib/activity';
 
 interface CurriculumUploadProps {
@@ -19,7 +21,10 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
   const [file, setFile] = useState<File | null>(null);
   
   const [prefs, setPrefs] = useState<any>({});
-  const [status, setStatus] = useState<'idle' | 'parsing' | 'diagnostic' | 'generating'>('idle');
+  const [status, setStatus] = useState<'idle' | 'parsing' | 'diagnostic' | 'generating' | 'issues'>('idle');
+  const [failedTopics, setFailedTopics] = useState<any[]>([]);
+  const [failReason, setFailReason] = useState('');
+  const [generatedTotal, setGeneratedTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [error, setError] = useState('');
@@ -170,79 +175,11 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
 
     try {
       const prefs = JSON.parse(localStorage.getItem('study_preferences') || '{}');
-      let completedTopics = 0;
-      for (const topic of topicsWithDepth) {
-        completedTopics++;
-        setProgressMsg(`Generating materials for Topic ${completedTopics} of ${savedTopics.length}...`);
-        
-        try {
-          const matRes = await authFetch('/api/generate-materials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: topic.title,
-              description: topic.description,
-              subject_name: topic.subject_name,
-              subject_exam_type: topic.subject_exam_type,
-              generation_depth: topic.generation_depth,
-              content_format_preference: prefs.contentFormat,
-              explanation_complexity_preference: prefs.explanationComplexity
-            })
-          });
-          
-          if (!matRes.ok) {
-            console.warn(`Failed to generate materials for topic ${topic.id}`);
-            continue; // Skip and continue
-          }
-          
-          const { result: materials } = await matRes.json();
-          
-          // Insert Notes
-          if (materials.lecture_notes) {
-            await supabase.from('lecture_notes').insert({
-              topic_id: topic.id,
-              content: materials.lecture_notes
-            });
-          }
-          
-          // Insert Flashcards
-          if (materials.flashcards && materials.flashcards.length > 0) {
-            const fcInserts = materials.flashcards.map((fc: any) => ({
-              topic_id: topic.id,
-              question: fc.question,
-              answer: fc.answer
-            }));
-            await supabase.from('flashcards').insert(fcInserts);
-          }
-          
-          // Insert Quiz
-          if (materials.quiz && materials.quiz.length > 0) {
-            const { data: quizData, error: quizError } = await supabase
-              .from('quizzes')
-              .insert({
-                topic_id: topic.id,
-                title: `${topic.title} Quiz`
-              })
-              .select()
-              .single();
-              
-            if (!quizError && quizData) {
-              const qInserts = materials.quiz.map((q: any, i: number) => ({
-                quiz_id: quizData.id,
-                question_text: q.question_text,
-                options: q.options || [],
-                correct_answer: q.correct_answer,
-                explanation: q.explanation,
-                order_index: i
-              }));
-              await supabase.from('quiz_questions').insert(qInserts);
-            }
-          }
-        } catch (matErr) {
-          console.warn(`Error generating for topic ${topic.id}:`, matErr);
-          // continue to next topic
-        }
-      }
+      const { failed, firstError } = await generateForTopics(
+        topicsWithDepth,
+        { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
+        (done, total) => setProgressMsg(`Generating materials for Topic ${done} of ${total}...`)
+      );
 
       // 6. Update Curriculum Status
       const curriculumId = topicsWithDepth[0]?.curriculum_id;
@@ -253,7 +190,17 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
           .eq('id', curriculumId);
 
         await recordActivity(userId, 'curriculum_uploaded', { curriculumId });
+      }
 
+      if (failed.length > 0) {
+        setFailedTopics(failed);
+        setFailReason(firstError);
+        setGeneratedTotal(topicsWithDepth.length);
+        setStatus('issues');
+        return;
+      }
+
+      if (curriculumId) {
         if (onUploadComplete) {
           onUploadComplete();
         } else {
@@ -274,6 +221,22 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
 
   if (completedCurriculumId) {
     return <CurriculumResults curriculumId={completedCurriculumId} userId={userId} />;
+  }
+
+  if (status === 'issues') {
+    const curriculumId = savedTopics[0]?.curriculum_id;
+    return (
+      <GenerationIssues
+        total={generatedTotal}
+        failedCount={failedTopics.length}
+        reason={failReason}
+        onRetry={() => handleDiagnosticComplete(failedTopics)}
+        onContinue={() => {
+          if (onUploadComplete) onUploadComplete();
+          else if (curriculumId) setCompletedCurriculumId(curriculumId);
+        }}
+      />
+    );
   }
 
   if (status === 'diagnostic') {
