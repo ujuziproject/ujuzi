@@ -10,12 +10,20 @@ import {defineConfig} from 'vite';
 const DEFAULT_SUPABASE_URL = 'https://vfvugkpzxpxxffgbxndj.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmdnVna3B6eHB4eGZmZ2J4bmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwOTk0NTAsImV4cCI6MjEwMTY3NTQ1MH0.NNlhWPqUBtEmHP344ZzW-KEU6gdKWVLghFO52d-0TVo';
 
+// Use an env value only if it looks right; otherwise fall back to the built-in default.
+function pick(value: string | undefined, fallback: string, looksValid: (v: string) => boolean) {
+  const v = (value || '').trim();
+  return v && looksValid(v) ? v : fallback;
+}
+const SUPABASE_URL = pick(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL, DEFAULT_SUPABASE_URL, v => /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(v));
+const SUPABASE_ANON_KEY = pick(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY, DEFAULT_SUPABASE_ANON_KEY, v => v.startsWith('eyJ') || v.startsWith('sb_publishable_'));
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(SUPABASE_URL.replace(/\/$/, '')),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(SUPABASE_ANON_KEY),
     },
     resolve: {
       alias: {

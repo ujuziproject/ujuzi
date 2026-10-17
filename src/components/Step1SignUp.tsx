@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { friendlyAuthError } from '../lib/errors';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -46,7 +47,7 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
 
  onNext(user.id, fullName);
  } catch (err: any) {
- setError(err.message || 'An error occurred during sign up.');
+ setError(friendlyAuthError(err, 'An error occurred during sign up.'));
  } finally {
  setLoading(false);
  }
