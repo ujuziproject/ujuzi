@@ -1,0 +1,3 @@
+#!/bin/bash
+sed -i -e "s/const \[view, setView\] = useState<'loading' | 'home' | 'upload' | 'curriculum'>('loading');/const [view, setView] = useState<'loading' | 'home' | 'upload' | 'curriculum' | 'semesterDetail' | 'courseDetail'>('loading');/" src/components/Dashboard.tsx
+sed -i -e "s/const \[selectedCurriculumId, setSelectedCurriculumId\] = useState<string | null>(null);/const [selectedCurriculumId, setSelectedCurriculumId] = useState<string | null>(null);\n  const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);\n  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);/" src/components/Dashboard.tsx

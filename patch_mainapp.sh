@@ -1,0 +1,4 @@
+#!/bin/bash
+sed -i -e "s/const \[loading, setLoading\] = useState(true);/const [loading, setLoading] = useState(true);\n  const [track, setTrack] = useState('secondary');/" src/components/MainApp.tsx
+sed -i -e "s/const { data: streaks }/const { data: profile } = await supabase.from('student_profiles').select('track').eq('id', userId).maybeSingle();\n      if (profile?.track) setTrack(profile.track);\n\n      const { data: streaks }/" src/components/MainApp.tsx
+sed -i -e "s/<SidebarItem active={currentView === 'curricula'} icon={<Folder className=\"w-5 h-5\" \/>} label=\"Curricula\" onClick={() => setCurrentView('curricula')} \/>/<SidebarItem active={currentView === 'curricula'} icon={<Folder className=\"w-5 h-5\" \/>} label={track === 'university' ? 'Semesters' : 'Curricula'} onClick={() => setCurrentView('curricula')} \/>/" src/components/MainApp.tsx

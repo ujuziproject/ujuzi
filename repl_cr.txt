@@ -1,0 +1,7 @@
+      let query = supabase.from('topics').select('*').order('order_index');
+      if (courseId) {
+        query = query.eq('course_id', courseId);
+      } else if (curriculumId) {
+        query = query.eq('curriculum_id', curriculumId);
+      }
+      const { data, error } = await query;
