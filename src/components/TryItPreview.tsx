@@ -27,19 +27,6 @@ export function TryItPreview({ onSignUpClick }: { onSignUpClick: () => void }) {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        let encoded = reader.result as string;
-        encoded = encoded.replace(/^data:(.*,)?/, '');
-        resolve(encoded);
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const handleExtract = async () => {
     if (inputType === 'text' && !text.trim()) {
       setErrorMsg('Please paste your curriculum text.');
@@ -49,30 +36,33 @@ export function TryItPreview({ onSignUpClick }: { onSignUpClick: () => void }) {
       setErrorMsg('Please select a file.');
       return;
     }
+    if (inputType === 'file' && file && file.size > 10 * 1024 * 1024) {
+      setErrorMsg('Please choose a file under 10MB.');
+      return;
+    }
     
     setErrorMsg('');
     setStatus('parsing');
 
     try {
-      let payload: any = {};
+      let response: Response;
       if (inputType === 'text') {
-        payload.text = text;
         sessionStorage.setItem('curriculumDraftText', text); // save for later signup
-      } else if (file) {
-        const base64Data = await fileToBase64(file);
-        payload.fileData = {
-          mimeType: file.type,
-          data: base64Data
-        };
+        response = await fetch('/api/public/extract-topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+      } else {
+        // Send the file as-is (no base64), with its own content type
+        response = await fetch('/api/public/extract-topics', {
+          method: 'POST',
+          headers: { 'Content-Type': file!.type || 'application/octet-stream' },
+          body: file
+        });
       }
 
-      const response = await fetch('/api/public/extract-topics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || 'Failed to extract topics');
       }
@@ -122,7 +112,7 @@ export function TryItPreview({ onSignUpClick }: { onSignUpClick: () => void }) {
 
           <div className="bg-gradient-to-br from-ink to-[#2A2440] p-8 rounded-3xl text-center text-white relative overflow-hidden shadow-xl">
              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
-             <h3 className="text-2xl font-black font-display mb-3 relative z-10">Unlock Your Study Plan</h3>
+             <h3 className="text-2xl font-black font-display mb-3 relative z-10 text-white">Unlock Your Study Plan</h3>
              <p className="text-white/70 mb-8 max-w-lg mx-auto relative z-10 text-[15px]">Sign up free to generate full lecture notes, spaced-repetition flashcards, and diagnostic quizzes for every topic above.</p>
              <button onClick={onSignUpClick} className="bg-white text-ink px-8 py-4 rounded-full font-bold flex items-center gap-2 mx-auto hover:bg-slate-50 transition-colors shadow-lg shadow-white/10 relative z-10">
                 Sign up free to unlock <ArrowRight className="w-4 h-4" />
@@ -166,7 +156,7 @@ export function TryItPreview({ onSignUpClick }: { onSignUpClick: () => void }) {
           </div>
         ) : (
           <div>
-             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,image/*" />
+             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,image/png,image/jpeg,image/webp" />
              <div 
                onClick={() => fileInputRef.current?.click()}
                className={cn(

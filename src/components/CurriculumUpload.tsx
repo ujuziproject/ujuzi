@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { authFetch } from '../lib/api';
+import { authFetch, apiError } from '../lib/api';
 import { Loader2, UploadCloud, FileText, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CurriculumResults } from './CurriculumResults';
@@ -128,7 +128,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
         )
       });
       
-      if (!extractRes.ok) throw new Error('Failed to extract topics. Please try again.');
+      if (!extractRes.ok) throw await apiError(extractRes, 'Failed to extract topics. Please try again.');
       
       const { result: topics } = await extractRes.json();
       

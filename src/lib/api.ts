@@ -10,3 +10,15 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   if (token) headers.set('Authorization', `Bearer ${token}`);
   return fetch(input, { ...init, headers });
 }
+
+// Builds an Error from a failed /api response, using the server's message when there is one
+// (e.g. "Your session has expired" or the hourly limit message).
+export async function apiError(res: Response, fallback: string): Promise<Error> {
+  try {
+    const data = await res.clone().json();
+    if (data?.error) return new Error(data.error);
+  } catch {
+    // not JSON
+  }
+  return new Error(fallback);
+}

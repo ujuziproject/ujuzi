@@ -16,6 +16,9 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // `npm run dev` serves the front end only. To use the AI features locally,
+      // run `npx wrangler pages dev dist` in another terminal; /api calls are proxied to it.
+      proxy: { '/api': 'http://127.0.0.1:8788' },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

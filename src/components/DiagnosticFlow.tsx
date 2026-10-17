@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { authFetch } from '../lib/api';
+import { authFetch, apiError } from '../lib/api';
 import { Topic } from '../types';
 import { Loader2, Play, SkipForward, CheckCircle2 } from 'lucide-react';
 
@@ -44,7 +44,7 @@ export function DiagnosticFlow({ userId, topics, onComplete }: DiagnosticFlowPro
           topics: topics.map(t => ({ id: t.id, title: t.title, description: t.description }))
         })
       });
-      if (!res.ok) throw new Error('Failed to generate diagnostic');
+      if (!res.ok) throw await apiError(res, 'Failed to generate diagnostic');
       const { result } = await res.json();
       setQuestions(result);
       setStep('quiz');

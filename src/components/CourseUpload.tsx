@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { authFetch } from '../lib/api';
+import { authFetch, apiError } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { Loader2, Search } from 'lucide-react';
 
@@ -97,7 +97,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
           body: JSON.stringify({ text })
         });
         
-        if (!res.ok) throw new Error('Bulk parse failed');
+        if (!res.ok) throw await apiError(res, 'Bulk parse failed');
         const { result: parsedCourses } = await res.json();
         
         setProgressMsg(`Found ${parsedCourses.length} courses. Generating...`);
@@ -134,7 +134,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: `Course: ${title}\n\n${text}` })
         });
-        if (!extractRes.ok) throw new Error('Topic extraction failed');
+        if (!extractRes.ok) throw await apiError(extractRes, 'Topic extraction failed');
         const { result: extractedTopics } = await extractRes.json();
 
         const { data: course } = await supabase.from('courses').insert({
@@ -292,7 +292,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
                                courseOfStudy: profileData?.track === 'university' ? profileData?.course_of_study : undefined
                            })
                        });
-                       if (!res.ok) throw new Error('Failed to find curriculum');
+                       if (!res.ok) throw await apiError(res, 'Failed to find curriculum');
                        const data = await res.json();
                        setText(data.text);
                        if (data.isReal) {
