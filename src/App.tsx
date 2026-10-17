@@ -21,6 +21,7 @@ import { MainApp } from './components/MainApp';
 import { Track } from './types';
 import { cn } from './lib/utils';
 import { Loader2 } from 'lucide-react';
+import { STUDY_TIPS } from './lib/studyTips';
 
 export default function App() {
   const [step, setStep] = useState<number | string>(-1); // -1 = landing, 0 = login, 1 = signup
@@ -29,7 +30,12 @@ export default function App() {
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [track, setTrack] = useState<Track>('secondary');
   const [loadingSession, setLoadingSession] = useState(true);
-  const [showDelight, setShowDelight] = useState(false);
+  // Short "quest complete" moments between onboarding steps
+  const [celebration, setCelebration] = useState<{ emoji: string; title: string; subtitle: string } | null>(null);
+  const celebrate = (c: { emoji: string; title: string; subtitle: string }, then: () => void) => {
+    setCelebration(c);
+    setTimeout(() => { setCelebration(null); then(); }, 1400);
+  };
 
   useEffect(() => {
     checkSessionAndProfile();
@@ -136,31 +142,31 @@ export default function App() {
 
   const handleTrackSelect = async (selectedTrack: Track) => {
     setTrack(selectedTrack);
-    
-    // Show moment of delight
-    setShowDelight(true);
-    
-    setTimeout(async () => {
-        setShowDelight(false);
-        try {
-          await supabase.from('student_profiles').upsert({ id: userId, track: selectedTrack });
-        } catch (err) {
-          console.error('Error saving track', err);
-        }
-        if (selectedTrack === 'independent') {
-          setStep(4);
-        } else {
-          setStep(3);
-        }
-    }, 1500); // 1.5s delay
+    const saving = supabase.from('student_profiles').upsert({ id: userId, track: selectedTrack });
+    const label = selectedTrack === 'secondary' ? 'Exam Ace' : selectedTrack === 'university' ? 'Campus Scholar' : 'Self-Starter';
+    celebrate(
+      { emoji: '🎉', title: `${label} path unlocked!`, subtitle: 'Nice pick. Your plan is taking shape.' },
+      async () => {
+        const { error } = await saving;
+        if (error) console.error('Error saving track', error);
+        setStep(selectedTrack === 'independent' ? 4 : 3);
+      }
+    );
   };
 
   const handleProfileComplete = () => {
-    setStep(4);
+    celebrate(
+      {
+        emoji: '🏅',
+        title: 'Quest complete!',
+        subtitle: track === 'secondary' ? 'Unlocked: questions in your exam board’s style' : 'Unlocked: content matched to your course and level',
+      },
+      () => setStep(4)
+    );
   };
 
   const handleInterestsComplete = () => {
-    setStep(5);
+    celebrate({ emoji: '📚', title: 'Library unlocked!', subtitle: 'Reading picks matched to your interests' }, () => setStep(5));
   };
 
   const handleLearningStyleComplete = () => {
@@ -213,14 +219,14 @@ export default function App() {
           <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, var(--color-accent) 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
           
           <div className="relative z-10 flex flex-col h-full">
-            <button onClick={() => setStep(-1)} className="flex items-center gap-2 mb-16 shrink-0 border-none bg-transparent hover:opacity-80 transition-opacity cursor-pointer text-left p-0">
+            <button onClick={() => setStep(-1)} className="flex items-center gap-2 mb-10 shrink-0 border-none bg-transparent hover:opacity-80 transition-opacity cursor-pointer text-left p-0">
               <span className="text-2xl font-bold tracking-tight font-display text-white">uJuzi</span>
             </button>
             
-            <div className="shrink-0 mb-12 mt-8">
+            <div className="shrink-0 mb-8 mt-2">
                <button 
                  onClick={() => setStep(Math.max(1, typeof step === 'number' ? step - 1 : 1))}
-                 className={`text-white text-xs font-bold tracking-wider flex items-center gap-2 hover:opacity-80 transition-opacity mb-12 ${step === 1 ? 'opacity-0 pointer-events-none' : ''}`}
+                 className={`text-white text-xs font-bold tracking-wider flex items-center gap-2 hover:opacity-80 transition-opacity mb-8 ${step === 1 ? 'opacity-0 pointer-events-none' : ''}`}
                >
                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
                  BACK
@@ -228,8 +234,16 @@ export default function App() {
                <div className="inline-block px-3 py-1 rounded-full border border-white/20 text-[10px] font-bold text-white tracking-widest uppercase mb-6">
                  Learning Plan
                </div>
-               <h1 className="text-white text-[2.5rem] md:text-5xl font-black leading-tight mb-6 font-display uppercase tracking-tighter">LET'S BUILD YOUR<br />LEARNING PLAN.</h1>
-               <p className="text-slate-400 text-[15px] font-medium leading-relaxed max-w-sm">Takes about 3 minutes — then we'll build your first personalized study plan.</p>
+               <h1 className="text-white text-[2.25rem] lg:text-[2.75rem] font-black leading-[1.05] mb-6 font-display uppercase tracking-tighter">LET'S BUILD YOUR<br />LEARNING PLAN.</h1>
+               {typeof step === 'number' && step >= 1 && step <= 6 ? (
+                 <div key={step} className="rounded-2xl bg-white/5 border border-white/10 p-4 max-w-sm animate-in fade-in">
+                   <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#F5A623] mb-1.5">Did you know?</div>
+                   <div className="text-[13px] font-bold text-white mb-1">{STUDY_TIPS[(step - 1) % STUDY_TIPS.length].emoji} {STUDY_TIPS[(step - 1) % STUDY_TIPS.length].title}</div>
+                   <p className="text-[12px] text-white/60 leading-relaxed">{STUDY_TIPS[(step - 1) % STUDY_TIPS.length].body}</p>
+                 </div>
+               ) : (
+                 <p className="text-slate-400 text-[15px] font-medium leading-relaxed max-w-sm">Takes about 3 minutes — then we'll build your first personalized study plan.</p>
+               )}
             </div>
             
             {planProgress !== undefined && (
@@ -247,11 +261,11 @@ export default function App() {
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-6">
                 {[
-                  { id: 1, label: "CREATE ACCOUNT" },
-                  { id: 2, label: "CHOOSE YOUR PATH" },
-                  { id: 3, label: "ACADEMIC PROFILE" },
-                  { id: 4, label: "INTERESTS" },
-                  { id: 5, label: "LEARNING STYLE" }
+                  { id: 1, label: "🔑  CREATE ACCOUNT" },
+                  { id: 2, label: "🧭  CHOOSE YOUR PATH" },
+                  { id: 3, label: "🎓  ACADEMIC PROFILE" },
+                  { id: 4, label: "📚  YOUR INTERESTS" },
+                  { id: 5, label: "🧠  HOW YOU LEARN" }
                 ].map((s) => {
                   const isCurrent = step === s.id;
                   const isPast = typeof step === 'number' && step > s.id;
@@ -270,7 +284,7 @@ export default function App() {
               </div>
             </div>
             
-            <div className="mt-8 shrink-0 border-t border-white/10 pt-6">
+            <div className="mt-6 shrink-0 border-t border-white/10 pt-6">
                <p className="text-xs text-slate-500 font-medium">Your answers are private and only used to personalize your study materials.</p>
             </div>
           </div>
@@ -311,24 +325,19 @@ export default function App() {
         <div className="flex-1 flex flex-col p-8 md:p-16 md:pt-12">
           <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col">
             <AnimatePresence mode="wait">
-              {showDelight ? (
+              {celebration ? (
                 <motion.div 
-                  key="delight"
+                  key="celebration"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.3 }}
-                  className="flex flex-col items-center text-center justify-center h-full w-full"
+                  className="flex flex-col items-center text-center justify-center h-full w-full min-h-[50vh]"
+                  role="status"
                 >
-                   <div className="w-16 h-16 bg-accent/10 text-accent rounded-full flex items-center justify-center mb-6">
-                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                   </div>
-                   <h2 className="text-2xl font-black font-display text-ink uppercase tracking-wide">
-                     Great choice! 🎉
-                   </h2>
-                   <p className="text-slate-500 font-medium mt-3">
-                     Let's get your {track === 'secondary' ? 'Secondary' : track === 'university' ? 'University' : 'Custom'} plan ready.
-                   </p>
+                   <div className="text-6xl mb-5 animate-pop" aria-hidden="true">{celebration.emoji}</div>
+                   <h2 className="text-3xl font-black font-display text-ink tracking-tight">{celebration.title}</h2>
+                   <p className="text-slate-500 font-medium mt-3 max-w-sm">{celebration.subtitle}</p>
                 </motion.div>
               ) : (
                 <motion.div

@@ -1,215 +1,180 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { learnerType, formatEffect, depthEffect } from '../lib/learnerType';
 
 interface Step5Props {
- userId: string;
- onNext: () => void;
+  userId: string;
+  onNext: () => void;
 }
 
+type Option = { id: string; emoji: string; text: string; hint?: string };
+type Question = { key: 'format' | 'depth' | 'weekly'; text: string; options: Option[] };
+
+// Three quick questions (down from eight). Each answer changes something real:
+// how notes are written, how explanations are pitched, and the weekly study goal.
+const QUESTIONS: Question[] = [
+  {
+    key: 'format',
+    text: 'A friend is explaining how the heart pumps blood. What helps you most?',
+    options: [
+      { id: 'visual', emoji: '🎨', text: 'Sketch it out for me' },
+      { id: 'text', emoji: '📖', text: 'Walk me through it in words' },
+      { id: 'balanced', emoji: '🔀', text: 'A bit of both' },
+    ],
+  },
+  {
+    key: 'depth',
+    text: 'Which explanation of photosynthesis would you rather read first?',
+    options: [
+      { id: 'simple', emoji: '🍳', text: '“Plants cook their own food using sunlight, like a solar-powered kitchen.”' },
+      { id: 'advanced', emoji: '🔬', text: '“Chlorophyll absorbs light energy to turn carbon dioxide and water into glucose and oxygen.”' },
+      { id: 'balanced', emoji: '🪜', text: 'Start with the kitchen, then give me the science.' },
+    ],
+  },
+  {
+    key: 'weekly',
+    text: 'How much time can you give your studies each week?',
+    options: [
+      { id: '120', emoji: '🐢', text: 'About 2 hours', hint: 'A steady start' },
+      { id: '300', emoji: '🚶', text: 'About 5 hours', hint: 'Recommended' },
+      { id: '480', emoji: '🚀', text: '8 hours or more', hint: 'Exam mode' },
+    ],
+  },
+];
+
 export function Step5LearningStyle({ userId, onNext }: Step5Props) {
- const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
- const [answers, setAnswers] = useState<string[]>(Array(8).fill(''));
- const [submitting, setSubmitting] = useState(false);
- const [error, setError] = useState('');
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [revealed, setRevealed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
- const questions = [
- {
- text: "When learning something new, I prefer...",
- options: [
- { id: 'visual', text: "Diagrams and visual breakdowns" },
- { id: 'text', text: "Reading detailed written explanations" }
- ],
- type: 'format' // Q1
- },
- {
- text: "I understand best when a topic is explained...",
- options: [
- { id: 'simple', text: "With simple, everyday examples" },
- { id: 'advanced', text: "With precise technical detail" }
- ],
- type: 'complexity' // Q2
- },
- {
- text: "When studying, I like to...",
- options: [
- { id: 'visual', text: "Look at charts, maps, or images" },
- { id: 'text', text: "Take detailed written notes" }
- ],
- type: 'format' // Q3
- },
- {
- text: "If someone explained photosynthesis to me, I'd prefer...",
- options: [
- { id: 'simple', text: "'Plants eating sunlight like a snack'" },
- { id: 'advanced', text: "'The biochemical process converting light energy to chemical energy'" }
- ],
- type: 'complexity' // Q4
- },
- {
- text: "I remember things better when I...",
- options: [
- { id: 'visual', text: "Picture them in my mind" },
- { id: 'text', text: "Read about them in words" }
- ],
- type: 'format' // Q5
- },
- {
- text: "I prefer study materials that...",
- options: [
- { id: 'simple', text: "Start simple and build up gradually" },
- { id: 'advanced', text: "Go straight into technical depth" }
- ],
- type: 'complexity' // Q6
- },
- {
- text: "When solving a problem, I like to...",
- options: [
- { id: 'visual', text: "Sketch it out or visualize it" },
- { id: 'text', text: "Write out the steps in words" }
- ],
- type: 'format' // Q7
- },
- {
- text: "New concepts click for me best when explained...",
- options: [
- { id: 'simple', text: "Like I'm five years old first, then more detail" },
- { id: 'advanced', text: "At full technical level right away" }
- ],
- type: 'complexity' // Q8
- }
- ];
+  const q = QUESTIONS[index];
 
- const handleSelect = (optionId: string) => {
- const newAnswers = [...answers];
- newAnswers[currentQuestionIndex] = optionId;
- setAnswers(newAnswers);
+  const choose = (optionId: string) => {
+    const next = { ...answers, [q.key]: optionId };
+    setAnswers(next);
+    setTimeout(() => {
+      if (index < QUESTIONS.length - 1) setIndex(index + 1);
+      else setRevealed(true);
+    }, 250);
+  };
 
- if (currentQuestionIndex < 7) {
- setTimeout(() => setCurrentQuestionIndex(currentQuestionIndex + 1), 300);
- }
- };
+  const save = async (format: string, depth: string, weekly: number) => {
+    setSubmitting(true);
+    setError('');
+    const { error } = await supabase.from('student_profiles').update({
+      content_format_preference: format,
+      explanation_complexity_preference: depth,
+      weekly_goal_minutes: weekly,
+    }).eq('id', userId);
+    if (error) {
+      setError('Failed to save preferences. Please try again.');
+      setSubmitting(false);
+      return;
+    }
+    onNext();
+  };
 
- const calculateAndSubmit = async () => {
- setSubmitting(true);
- setError('');
+  // Smart default for students who'd rather not answer
+  const useRecommended = () => save('balanced', 'simple', 300);
 
- try {
- let visualCount = 0;
- let textCount = 0;
- let simpleCount = 0;
- let advancedCount = 0;
+  if (revealed) {
+    const format = answers.format || 'balanced';
+    const depth = answers.depth || 'balanced';
+    const weekly = Number(answers.weekly || 300);
+    const type = learnerType(format, depth);
+    return (
+      <div className="w-full max-w-xl mx-auto animate-in fade-in zoom-in-95 duration-500">
+        <div className="text-center mb-6">
+          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">Your learner type</div>
+          <div className="text-6xl mb-3" aria-hidden="true">{type.emoji}</div>
+          <h2 className="text-3xl font-black text-ink font-display mb-1">{type.name}</h2>
+          <p className="text-slate-500 font-medium">{type.tagline}</p>
+        </div>
 
- answers.forEach((ans, idx) => {
- const type = questions[idx].type;
- if (type === 'format') {
- if (ans === 'visual') visualCount++;
- if (ans === 'text') textCount++;
- } else if (type === 'complexity') {
- if (ans === 'simple') simpleCount++;
- if (ans === 'advanced') advancedCount++;
- }
- });
+        <div className="bg-surface-alt border border-border rounded-[2rem] p-6 shadow-sm mb-4">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">What this changes</div>
+          <ul className="space-y-3 text-[15px] text-ink">
+            <li className="flex gap-3"><span aria-hidden="true">📝</span><span>{formatEffect(format)}</span></li>
+            <li className="flex gap-3"><span aria-hidden="true">💡</span><span>{depthEffect(depth)}</span></li>
+            <li className="flex gap-3"><span aria-hidden="true">🎯</span><span>Your weekly goal is set to <strong>{Math.round(weekly / 60)} hours</strong>. You can change it any time in Settings.</span></li>
+          </ul>
+        </div>
 
- const content_format_preference = visualCount > textCount ? 'visual' : textCount > visualCount ? 'text' : 'balanced';
- const explanation_complexity_preference = simpleCount > advancedCount ? 'simple' : advancedCount > simpleCount ? 'advanced' : 'balanced';
+        <div className="bg-[#FFF6D9] rounded-[1.5rem] p-5 mb-8 text-[14px] text-[#5C4A26] leading-relaxed">
+          <span className="font-bold text-[#110B29]">Honest fact: </span>
+          research hasn’t found that matching lessons to a “learning style” improves grades on its own. We use your preferences to make studying comfortable, and pair them with what is proven to work: testing yourself and spacing out your reviews.
+        </div>
 
- const { error } = await supabase.from('student_profiles').update({
- content_format_preference,
- explanation_complexity_preference
- }).eq('id', userId);
+        <button
+          onClick={() => save(format, depth, weekly)}
+          disabled={submitting}
+          className="w-full bg-accent text-white py-4 rounded-full font-bold shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+        >
+          {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>That’s me — continue <ArrowRight className="w-4 h-4" /></>}
+        </button>
+        <button
+          onClick={() => { setRevealed(false); setIndex(0); setAnswers({}); }}
+          disabled={submitting}
+          className="w-full mt-3 text-sm font-semibold text-slate-500 hover:text-ink flex items-center justify-center gap-1.5"
+        >
+          <RotateCcw className="w-4 h-4" /> Retake (3 questions)
+        </button>
+        {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}
+      </div>
+    );
+  }
 
- if (error) throw error;
+  return (
+    <div className="w-full max-w-xl mx-auto">
+      <div className="mb-8 text-center">
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">Quick quiz · 3 questions</div>
+        <h2 className="text-3xl font-bold text-ink mb-4 font-display">How do you like to learn?</h2>
+        <div className="flex justify-center gap-2" aria-label={`Question ${index + 1} of ${QUESTIONS.length}`}>
+          {QUESTIONS.map((_, i) => (
+            <span key={i} className={cn('h-2 rounded-full transition-all duration-300', i < index ? 'w-8 bg-accent' : i === index ? 'w-8 bg-[#F5A623]' : 'w-2 bg-slate-200')} />
+          ))}
+        </div>
+      </div>
 
- onNext();
- } catch (err: any) {
- console.error(err);
- setError('Failed to save preferences. Please try again.');
- setSubmitting(false);
- }
- };
+      <div key={index} className="bg-surface-alt p-6 md:p-8 rounded-[2rem] border border-border shadow-sm mb-6 animate-in fade-in slide-in-from-right-4 duration-300">
+        <h3 className="text-xl font-bold text-ink mb-6 text-center">{q.text}</h3>
+        <div className="space-y-3">
+          {q.options.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => choose(opt.id)}
+              className={cn(
+                'w-full p-4 rounded-2xl border text-left font-semibold transition-all flex items-center gap-4',
+                answers[q.key] === opt.id
+                  ? 'bg-accent/10 border-accent/50 text-accent ring-2 ring-accent/20'
+                  : 'bg-surface border-border text-ink hover:border-accent hover:-translate-y-0.5 hover:shadow-sm'
+              )}
+            >
+              <span className="text-2xl shrink-0" aria-hidden="true">{opt.emoji}</span>
+              <span className="flex-1">{opt.text}</span>
+              {opt.hint && <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0">{opt.hint}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
 
- const isComplete = answers.filter(a => a !== '').length === 8;
-
- // Smart default for students who'd rather not answer: balanced format,
- // simple explanations first (works well for most students; changeable in Settings).
- const useRecommended = async () => {
- setSubmitting(true);
- setError('');
- const { error } = await supabase.from('student_profiles').update({
- content_format_preference: 'balanced',
- explanation_complexity_preference: 'simple'
- }).eq('id', userId);
- if (error) {
- setError('Failed to save preferences. Please try again.');
- setSubmitting(false);
- return;
- }
- onNext();
- };
-
- return (
- <div className="w-full max-w-xl mx-auto ">
- <div className="mb-8 text-center">
- <h2 className="text-3xl font-bold text-ink mb-2 font-display">How do you learn best?</h2>
- <p className="text-slate-500">Let's personalize your study experience. ({currentQuestionIndex + 1}/8)</p>
- </div>
-
- <div className="bg-surface-alt p-8 rounded-[2rem] border border-border shadow-sm mb-8 min-h-[250px] flex flex-col justify-center">
- <h3 className="text-xl font-bold text-ink mb-6 text-center">{questions[currentQuestionIndex].text}</h3>
- <div className="space-y-4">
- {questions[currentQuestionIndex].options.map((opt) => (
- <button
- key={opt.id}
- onClick={() => handleSelect(opt.id)}
- className={cn(
- "w-full p-4 rounded-xl border text-left font-semibold transition-all",
- answers[currentQuestionIndex] === opt.id 
- ? "bg-accent/10 border-accent/50 text-accent ring-2 ring-accent/20" 
- : "bg-surface border-border text-ink hover:border-accent hover:shadow-sm"
- )}
- >
- {opt.text}
- </button>
- ))}
- </div>
- </div>
-
- <div className="flex justify-between items-center">
- <button
- onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
- disabled={currentQuestionIndex === 0 || submitting}
- className="text-sm font-semibold text-slate-500 hover:text-ink disabled:opacity-50 transition-colors"
- >
- Previous
- </button>
-
- {isComplete && currentQuestionIndex === 7 ? (
- <button
- onClick={calculateAndSubmit}
- disabled={submitting}
- className="bg-accent text-white px-8 py-3 rounded-full font-bold shadow-sm hover:bg-accent/90 transition-all flex items-center gap-2 disabled:opacity-70"
- >
- {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Setup'}
- {!submitting && <ArrowRight className="w-4 h-4" />}
- </button>
- ) : (
- <button
- onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
- disabled={!answers[currentQuestionIndex] || submitting}
- className="bg-ink text-white px-6 py-3 rounded-full font-bold hover:bg-ink/90 transition-colors disabled:opacity-50"
- >
- Next
- </button>
- )}
- </div>
- {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}
- <div className="text-center mt-8">
- <button onClick={useRecommended} disabled={submitting} className="text-sm font-semibold text-slate-500 hover:text-accent underline underline-offset-4 disabled:opacity-50">
- Skip — use recommended settings (you can change them later)
- </button>
- </div>
- </div>
- );
+      <div className="flex justify-between items-center">
+        <button
+          onClick={() => setIndex(Math.max(0, index - 1))}
+          disabled={index === 0 || submitting}
+          className="text-sm font-semibold text-slate-500 hover:text-ink disabled:opacity-0 transition-colors"
+        >
+          ← Previous
+        </button>
+        <button onClick={useRecommended} disabled={submitting} className="text-sm font-semibold text-slate-500 hover:text-accent underline underline-offset-4 disabled:opacity-50">
+          Skip — use recommended settings
+        </button>
+      </div>
+      {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}
+    </div>
+  );
 }

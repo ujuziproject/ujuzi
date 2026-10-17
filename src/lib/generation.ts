@@ -6,7 +6,15 @@ export interface GenerationPrefs {
   explanationComplexity?: string;
 }
 
-export type GenerationOutcome = { ok: true } | { ok: false; error: string };
+export interface PreviewCard {
+  topicTitle: string;
+  question: string;
+  answer: string;
+}
+
+export type GenerationOutcome =
+  | { ok: true; cards: PreviewCard[] }
+  | { ok: false; error: string };
 
 // Generates notes, flashcards and a quiz for one topic and saves them.
 // Never throws: returns { ok: false, error } with a readable reason instead,
@@ -34,11 +42,15 @@ export async function generateAndSaveMaterials(topic: any, prefs: GenerationPref
       if (error) throw new Error(`Couldn't save the notes: ${error.message}`);
     }
 
+    const cards: PreviewCard[] = [];
     if (Array.isArray(m?.flashcards) && m.flashcards.length > 0) {
       const { error } = await supabase.from('flashcards').insert(
         m.flashcards.map((fc: any) => ({ topic_id: topic.id, question: fc.question, answer: fc.answer }))
       );
       if (error) throw new Error(`Couldn't save the flashcards: ${error.message}`);
+      for (const fc of m.flashcards.slice(0, 3)) {
+        if (fc?.question && fc?.answer) cards.push({ topicTitle: topic.title, question: fc.question, answer: fc.answer });
+      }
     }
 
     if (Array.isArray(m?.quiz) && m.quiz.length > 0) {
@@ -57,28 +69,52 @@ export async function generateAndSaveMaterials(topic: any, prefs: GenerationPref
       if (qErr) throw new Error(`Couldn't save the quiz questions: ${qErr.message}`);
     }
 
-    return { ok: true };
+    return { ok: true, cards };
   } catch (err: any) {
     console.warn('Material generation failed for topic', topic?.id, err);
     return { ok: false, error: err?.message || 'Unknown error' };
   }
 }
 
-// Runs generation for a list of topics, reporting progress, and returns the topics that failed.
+export type TopicStatus = 'queued' | 'working' | 'done' | 'failed';
+
+export interface GenerationCallbacks {
+  onTopicStatus?: (topicId: string, status: TopicStatus) => void;
+  onCards?: (cards: PreviewCard[]) => void;
+}
+
+// How many topics to generate at the same time. Three keeps things roughly
+// three times faster without tripping the AI service's rate limits.
+const CONCURRENCY = 3;
+
+// Generates materials for every topic (a few at a time) and returns the ones that failed.
 export async function generateForTopics(
   topics: any[],
   prefs: GenerationPrefs,
-  onProgress: (done: number, total: number) => void
+  callbacks: GenerationCallbacks = {}
 ): Promise<{ failed: any[]; firstError: string }> {
   const failed: any[] = [];
   let firstError = '';
-  for (let i = 0; i < topics.length; i++) {
-    onProgress(i + 1, topics.length);
-    const outcome = await generateAndSaveMaterials(topics[i], prefs);
-    if ('error' in outcome) {
-      failed.push(topics[i]);
-      if (!firstError) firstError = outcome.error;
+  let next = 0;
+
+  const worker = async () => {
+    while (next < topics.length) {
+      const topic = topics[next++];
+      callbacks.onTopicStatus?.(topic.id, 'working');
+      const outcome = await generateAndSaveMaterials(topic, prefs);
+      if ('error' in outcome) {
+        failed.push(topic);
+        if (!firstError) firstError = outcome.error;
+        callbacks.onTopicStatus?.(topic.id, 'failed');
+      } else {
+        callbacks.onTopicStatus?.(topic.id, 'done');
+        if (outcome.cards.length) callbacks.onCards?.(outcome.cards);
+      }
     }
-  }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, topics.length) }, worker));
+  // Keep failures in the original topic order
+  failed.sort((a, b) => topics.indexOf(a) - topics.indexOf(b));
   return { failed, firstError };
 }

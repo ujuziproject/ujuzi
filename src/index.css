@@ -94,3 +94,24 @@
     transform: rotateY(180deg);
   }
 }
+
+/* Entrance animations used across the app (animate-in + fade-in / zoom-in-95 / slide-in-from-*) */
+@keyframes uj-enter {
+  from {
+    opacity: var(--uj-enter-opacity, 1);
+    transform: translate3d(var(--uj-enter-tx, 0), var(--uj-enter-ty, 0), 0) scale(var(--uj-enter-scale, 1));
+  }
+}
+.animate-in { animation: uj-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.fade-in { --uj-enter-opacity: 0; }
+.zoom-in-95 { --uj-enter-scale: 0.95; }
+.slide-in-from-right-4 { --uj-enter-tx: 1rem; }
+.slide-in-from-bottom-4 { --uj-enter-ty: 1rem; }
+
+/* A little bounce for "unlocked" moments */
+@keyframes uj-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+.animate-pop { animation: uj-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-pop { animation: none; }
+}

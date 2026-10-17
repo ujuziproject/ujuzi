@@ -6,7 +6,7 @@ import { cn } from '../lib/utils';
 import { CurriculumResults } from './CurriculumResults';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { GenerationIssues } from './GenerationIssues';
-import { generateForTopics } from '../lib/generation';
+import { GenerationRunner } from './GenerationRunner';
 import { loadTryItPlan, clearTryItPlan, tryItDraftText, applyHardTopics } from '../lib/tryItPlan';
 import { recordActivity } from '../lib/activity';
 
@@ -53,9 +53,10 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
   const [subjectExamType, setSubjectExamType] = useState('WAEC');
 
   useEffect(() => {
-    supabase.from('student_profiles').select('track, exam_type').eq('id', userId).maybeSingle().then(({data}) => {
+    supabase.from('student_profiles').select('track, exam_type, content_format_preference, explanation_complexity_preference').eq('id', userId).maybeSingle().then(({data}) => {
        if (data) {
           setProfileData(data);
+          setPrefs({ contentFormat: data.content_format_preference, explanationComplexity: data.explanation_complexity_preference });
           if (data.exam_type) setSubjectExamType(data.exam_type);
        }
     });
@@ -176,55 +177,64 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
     }
   };
 
-  const handleDiagnosticComplete = async (topicsWithDepth: any[]) => {
+  // Generation runs inside <GenerationRunner>, which keeps the student engaged while it works
+  const [toGenerate, setToGenerate] = useState<any[]>([]);
+  const [runId, setRunId] = useState(0);
+
+  const handleDiagnosticComplete = (topicsWithDepth: any[]) => {
+    setToGenerate(applyHardTopics(topicsWithDepth, hardTitles));
+    setRunId(r => r + 1);
     setStatus('generating');
-    setLoading(true);
+  };
 
+  const handleGenerationFinished = async ({ failed, firstError }: { failed: any[]; firstError: string }) => {
     try {
-      const prefs = JSON.parse(localStorage.getItem('study_preferences') || '{}');
-      const { failed, firstError } = await generateForTopics(
-        applyHardTopics(topicsWithDepth, hardTitles),
-        { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
-        (done, total) => setProgressMsg(`Generating materials for Topic ${done} of ${total}...`)
-      );
-
-      // 6. Update Curriculum Status
-      const curriculumId = topicsWithDepth[0]?.curriculum_id;
+      const curriculumId = toGenerate[0]?.curriculum_id;
       if (curriculumId) {
-        await supabase
-          .from('curricula')
-          .update({ status: 'parsed' })
-          .eq('id', curriculumId);
-
+        await supabase.from('curricula').update({ status: 'parsed' }).eq('id', curriculumId);
         await recordActivity(userId, 'curriculum_uploaded', { curriculumId });
+      }
+      try {
+        const { adjustStudyPlan } = await import('../lib/pacing');
+        await adjustStudyPlan(userId, 'secondary');
+      } catch (e) {
+        console.error('Error generating study plan', e);
       }
 
       if (failed.length > 0) {
         setFailedTopics(failed);
         setFailReason(firstError);
-        setGeneratedTotal(topicsWithDepth.length);
+        setGeneratedTotal(toGenerate.length);
         setStatus('issues');
         return;
       }
 
-      if (curriculumId) {
-        if (onUploadComplete) {
-          onUploadComplete();
-        } else {
-          setCompletedCurriculumId(curriculumId);
-        }
-      } else {
-         if (onUploadComplete) onUploadComplete();
-      }
+      // Success: GenerationRunner shows "ready" and waits for the student to continue
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
-      setProgressMsg('');
-      
-      // We could try to mark curriculum as 'failed' if we had an ID
+      setStatus('idle');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleContinueAfterGeneration = () => {
+    const curriculumId = toGenerate[0]?.curriculum_id;
+    if (onUploadComplete) onUploadComplete();
+    else if (curriculumId) setCompletedCurriculumId(curriculumId);
+  };
+
+  if (status === 'generating') {
+    return (
+      <GenerationRunner
+        key={runId}
+        topics={toGenerate}
+        prefs={{ contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity }}
+        onFinished={handleGenerationFinished}
+        onContinue={handleContinueAfterGeneration}
+      />
+    );
+  }
 
   if (completedCurriculumId) {
     return <CurriculumResults curriculumId={completedCurriculumId} userId={userId} />;

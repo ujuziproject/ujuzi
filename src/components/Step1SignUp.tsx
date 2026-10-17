@@ -58,7 +58,8 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  return (
  <div className="w-full max-w-md mx-auto ">
  <div className="text-center mb-10">
- <h1 className="text-3xl font-bold text-ink mb-2">{plan ? 'Save your study plan' : 'Join uJuzi'}</h1>
+ <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">Quest 1 · Create your account</div>
+ <h1 className="text-3xl font-black text-ink mb-2 font-display">{plan ? 'Save your study plan' : 'Join uJuzi 👋'}</h1>
  <p className="text-slate-500">{plan ? "One quick step and it's yours to keep." : 'Create your student account to get started.'}</p>
  </div>
 

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Track } from '../types';
+import { learnerType } from '../lib/learnerType';
+import { loadTryItPlan } from '../lib/tryItPlan';
 
 interface Step6Props {
  userId: string;
@@ -59,6 +61,8 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  
  const [profile, setProfile] = useState<any>(null);
  const [interests, setInterests] = useState<any[]>([]);
+ const [fullName, setFullName] = useState('');
+ const [pendingPlan] = useState(() => loadTryItPlan());
 
  useEffect(() => {
  fetchData();
@@ -74,6 +78,8 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  
  if (pError) throw pError;
  setProfile(pData);
+ const { data: base } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
+ if (base?.full_name) setFullName(base.full_name);
 
  const { data: iData, error: iError } = await supabase
  .from('student_interests')
@@ -136,15 +142,21 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  );
  }
 
+ const type = learnerType(profile?.content_format_preference, profile?.explanation_complexity_preference);
+ const pathLabel = profile?.track === 'secondary' ? '🎒 Exam Ace' : profile?.track === 'university' ? '🎓 Campus Scholar' : '🧭 Self-Starter';
+ const detail = profile?.track === 'secondary'
+ ? `${(profile?.exam_type || '').toUpperCase()}${profile?.exam_year ? ` ${profile.exam_year}` : ''}`
+ : profile?.track === 'university'
+ ? [profile?.course_of_study, profile?.institution_name].filter(Boolean).join(' · ')
+ : 'Learning on your own terms';
+ const weeklyHours = Math.round((profile?.weekly_goal_minutes || 300) / 60);
+
  return (
- <div className="w-full max-w-2xl mx-auto ">
+ <div className="w-full max-w-xl mx-auto">
  <Confetti />
- <div className="text-center mb-10">
- <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
- <CheckCircle2 className="w-8 h-8 text-accent" />
- </div>
- <h1 className="text-2xl md:text-3xl font-black text-ink mb-3 uppercase tracking-tight font-display">Review Your Plan</h1>
- <p className="text-slate-500 font-medium">Here's a summary of your uJuzi learning profile.</p>
+ <div className="text-center mb-6">
+ <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">All quests complete 🏆</div>
+ <h1 className="text-3xl font-black text-ink tracking-tight font-display">Meet your learner card</h1>
  </div>
 
  {error && (
@@ -153,82 +165,57 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  </div>
  )}
 
- <div className="bg-surface-alt border border-border rounded-2xl p-6 md:p-8 space-y-8 mb-8 shadow-sm">
- 
- {/* Track & Academic Info */}
+ <div className="relative rounded-[2rem] p-7 mb-6 text-white overflow-hidden shadow-xl bg-gradient-to-br from-[#1E1139] via-[#2D1F5B] to-[#43236C] animate-in fade-in zoom-in-95">
+ <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#F5A623]/20 blur-3xl pointer-events-none" />
+ <div className="flex items-start justify-between gap-4 mb-6 relative">
  <div>
- <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Academic Path</h3>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Track</span>
- <span className="font-semibold text-ink capitalize">{profile?.track || 'Not set'}</span>
+ <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">uJuzi learner</div>
+ <div className="text-2xl font-black font-display mt-1">{fullName || 'You'}</div>
+ <div className="text-[13px] font-semibold text-[#F5A623] mt-1">{pathLabel}</div>
  </div>
- 
- {profile?.track === 'secondary' && profile?.exam_type && (
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Target Exam</span>
- <span className="font-semibold text-ink uppercase">{profile.exam_type} {profile.exam_year ? `(${profile.exam_year})` : ''}</span>
+ <div className="text-5xl animate-pop" aria-hidden="true">{type.emoji}</div>
+ </div>
+
+ <div className="grid grid-cols-2 gap-3 relative">
+ <div className="rounded-2xl bg-white/10 p-3.5">
+ <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Learner type</div>
+ <div className="font-bold text-[14px] leading-snug">{type.name.replace(/^The /, '')}</div>
+ </div>
+ <div className="rounded-2xl bg-white/10 p-3.5">
+ <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Weekly goal</div>
+ <div className="font-bold text-[14px]">{weeklyHours} hours</div>
+ </div>
+ <div className="rounded-2xl bg-white/10 p-3.5 col-span-2">
+ <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">{profile?.track === 'secondary' ? 'Target exam' : profile?.track === 'university' ? 'Studying' : 'Mode'}</div>
+ <div className="font-bold text-[14px]">{detail || '—'}</div>
+ </div>
+ </div>
+
+ {interests.length > 0 && (
+ <div className="flex flex-wrap gap-2 mt-4 relative">
+ {interests.map((interest, idx) => (
+ <span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-[12px] font-semibold">{interest}</span>
+ ))}
  </div>
  )}
-
- {profile?.track === 'university' && (
- <>
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Course of Study</span>
- <span className="font-semibold text-ink">{profile.course_of_study || 'Not set'}</span>
- </div>
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Institution</span>
- <span className="font-semibold text-ink">{profile.institution_name || 'Not set'}</span>
- </div>
- </>
- )}
- </div>
  </div>
 
- {/* Interests */}
- <div>
- <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Learning Interests</h3>
- <div className="flex flex-wrap gap-2">
- {interests.length > 0 ? (
- interests.map((interest, idx) => (
- <span key={idx} className="px-3 py-1.5 bg-accent/5 text-accent font-semibold rounded-lg text-sm border border-accent/10">
- {interest}
- </span>
- ))
- ) : (
- <span className="text-slate-500 text-sm">No interests selected.</span>
- )}
- </div>
- </div>
-
- {/* Learning Style */}
- <div>
- <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Learning Preferences</h3>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Content Format</span>
- <span className="font-semibold text-ink capitalize">{profile?.content_format_preference || 'Balanced'}</span>
- </div>
- <div className="p-4 bg-slate-50 rounded-xl">
- <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Explanation Depth</span>
- <span className="font-semibold text-ink capitalize">{profile?.explanation_complexity_preference || 'Balanced'}</span>
- </div>
- </div>
- </div>
-
+ <div className="bg-surface-alt border border-border rounded-[1.5rem] p-5 mb-6">
+ <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Next quest</div>
+ <div className="font-bold text-ink">{pendingPlan ? `📥 Save “${pendingPlan.name}” as your first course` : '📥 Add your first syllabus or course outline'}</div>
+ <div className="text-sm text-slate-500 mt-1">We’ll turn it into notes, flashcards and quizzes in a few minutes.</div>
  </div>
 
  <button
  onClick={handleFinalize}
  disabled={submitting}
- className="w-full bg-accent hover:bg-accent/90 text-white font-medium py-4 px-6 rounded-full transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-accent/20 text-lg"
+ className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 px-6 rounded-full transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-accent/20 text-lg"
  >
  {submitting ? (
  <Loader2 className="w-6 h-6 animate-spin" />
  ) : (
  <>
- Complete Onboarding
+ Enter uJuzi
  <ArrowRight className="w-5 h-5" />
  </>
  )}

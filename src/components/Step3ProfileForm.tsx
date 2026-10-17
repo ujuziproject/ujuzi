@@ -74,11 +74,14 @@ export function Step3ProfileForm({ userId, track, onNext, onBack }: Step3Props) 
  <div className="w-full ">
  <div className="text-center mb-10">
  
- <h1 className="text-3xl font-bold text-ink mb-2">Academic Profile</h1>
+ <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">Quest 3 · Academic profile</div>
+ <h1 className="text-3xl font-black text-ink mb-2 font-display">
+ {track === 'secondary' ? '🎒 Which exam are you conquering?' : '🎓 What are you studying?'}
+ </h1>
  <p className="text-slate-500 font-medium">
  {track === 'secondary' 
- ? 'Help us tailor your exam preparation journey.' 
- : 'Let us know what you are studying.'}
+ ? 'We’ll write your questions in the same style as the real exam.' 
+ : 'We’ll match your notes to your course and level.'}
  </p>
  </div>
 

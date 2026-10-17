@@ -9,6 +9,14 @@ interface Step4Props {
  onNext: () => void;
 }
 
+const INTEREST_EMOJI: Record<string, string> = {
+ 'Sports': '⚽', 'Fashion': '👗', 'Politics': '🏛️', 'Technology': '💻', 'Music': '🎵',
+ 'Movies & TV': '🎬', 'Business & Entrepreneurship': '💼', 'Religion & Spirituality': '🕊️',
+ 'Health & Fitness': '💪', 'Gaming': '🎮', 'Art & Design': '🎨', 'Science': '🔬', 'Travel': '✈️',
+ 'Food & Cooking': '🍲', 'Literature & Poetry': '📚', 'Comedy & Entertainment': '😂',
+ 'Environment & Sustainability': '🌍', 'History & Culture': '🏺',
+};
+
 export function Step4Interests({ userId, onNext }: Step4Props) {
  const [interests, setInterests] = useState<Interest[]>([]);
  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -80,7 +88,8 @@ export function Step4Interests({ userId, onNext }: Step4Props) {
  return (
  <div className="w-full max-w-xl mx-auto slide-in-from-right-4 ">
  <div className="mb-10 text-center">
- <h1 className="text-3xl font-bold text-ink mb-2">What interests you?</h1>
+ <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent mb-2">Quest 4 · Your interests</div>
+ <h1 className="text-3xl font-black text-ink mb-2 font-display">What are you into? ✨</h1>
  <p className="text-slate-500">We've picked a few popular ones to start. Tap to add or remove — this shapes your reading library.</p>
  </div>
 
@@ -109,14 +118,22 @@ export function Step4Interests({ userId, onNext }: Step4Props) {
  : "border-border hover:border-accent/50 bg-surface-alt text-ink/80 hover:bg-surface"
  )}
  >
- {isSelected && <Check className="w-4 h-4" />}
+ <span aria-hidden="true">{INTEREST_EMOJI[interest.name] || '⭐'}</span>
  {interest.name}
+ {isSelected && <Check className="w-4 h-4" />}
  </button>
  );
  })}
  </div>
  )}
 
+ {!loading && (
+ <p className="text-center text-sm font-semibold mb-4 text-slate-500" aria-live="polite">
+ {selectedIds.size === 0 ? 'Pick at least one to unlock your library'
+ : selectedIds.size < 3 ? `${selectedIds.size} picked — add ${3 - selectedIds.size} more for better reading picks`
+ : `${selectedIds.size} picked — your library is taking shape 📚`}
+ </p>
+ )}
  <button
  onClick={handleSubmit}
  disabled={submitting || loading}
@@ -125,7 +142,7 @@ export function Step4Interests({ userId, onNext }: Step4Props) {
  {submitting ? (
  <Loader2 className="w-6 h-6 animate-spin" />
  ) : (
- 'Complete Profiling'
+ 'Unlock my library →'
  )}
  </button>
  </div>

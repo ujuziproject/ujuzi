@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { authFetch, apiError } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { GenerationIssues } from './GenerationIssues';
-import { generateForTopics } from '../lib/generation';
+import { GenerationRunner } from './GenerationRunner';
 import { loadTryItPlan, clearTryItPlan, tryItDraftText, applyHardTopics } from '../lib/tryItPlan';
 import { Loader2, Search } from 'lucide-react';
 
@@ -155,16 +155,19 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
     }
   };
 
-  const handleDiagnosticComplete = async (topicsWithDepth: any[]) => {
-    setStatus('generating');
-    const { failed, firstError } = await generateForTopics(
-      applyHardTopics(topicsWithDepth, hardTitles),
-      { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
-      (done, total) => setProgressMsg(`Generating materials for topic ${done} of ${total}...`)
-    );
+  // Generation runs inside <GenerationRunner>, which keeps the student engaged while it works
+  const [toGenerate, setToGenerate] = useState<any[]>([]);
+  const [runId, setRunId] = useState(0);
 
+  const handleDiagnosticComplete = (topicsWithDepth: any[]) => {
+    setToGenerate(applyHardTopics(topicsWithDepth, hardTitles));
+    setRunId(r => r + 1);
+    setStatus('generating');
+  };
+
+  const handleGenerationFinished = async ({ failed, firstError }: { failed: any[]; firstError: string }) => {
     // Mark courses as parsed and refresh the study plan for whatever succeeded
-    const courseIds = [...new Set(topicsWithDepth.map(t => t.course_id))];
+    const courseIds = [...new Set(toGenerate.map(t => t.course_id))];
     for (const cid of courseIds) {
       if (cid) await supabase.from('courses').update({ status: 'parsed' }).eq('id', cid);
     }
@@ -178,10 +181,14 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
     if (failed.length > 0) {
       setFailedTopics(failed);
       setFailReason(firstError);
-      setGeneratedTotal(topicsWithDepth.length);
+      setGeneratedTotal(toGenerate.length);
       setStatus('issues');
       return;
     }
+    // Success: GenerationRunner shows "ready" and waits for the student to continue
+  };
+
+  const handleContinueAfterGeneration = () => {
     setStatus('success');
     onUploadComplete();
   };
@@ -220,11 +227,13 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
 
   if (status === 'generating') {
     return (
-      <div className="bg-surface-alt rounded-[2rem] border border-border p-12 shadow-sm flex flex-col items-center justify-center text-center min-h-[400px]">
-        <Loader2 className="w-12 h-12 text-accent animate-spin mb-6" />
-        <h3 className="text-xl font-bold text-ink mb-2 font-display">{progressMsg}</h3>
-        <p className="text-slate-500 max-w-md">Generating tailored study materials based on your diagnostic results...</p>
-      </div>
+      <GenerationRunner
+        key={runId}
+        topics={toGenerate}
+        prefs={{ contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity }}
+        onFinished={handleGenerationFinished}
+        onContinue={handleContinueAfterGeneration}
+      />
     );
   }
 
