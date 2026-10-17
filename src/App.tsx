@@ -194,7 +194,7 @@ export default function App() {
   if (step === 'privacy') return <PrivacyPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
 
   if (step === -1) {
-    return <LandingPage onLogin={() => setStep(0)} onGetStarted={() => setStep(1)} onNavigate={(page) => setStep(page)} />;
+    return <LandingPage onLogin={() => setStep(0)} onGetStarted={() => setStep(1)} onTryIt={() => setStep('try')} onNavigate={(page) => setStep(page)} />;
   }
 
   if (step === 7) {

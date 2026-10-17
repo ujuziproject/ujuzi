@@ -8,6 +8,7 @@ import CourseDetail from './CourseDetail';
 import { GoalDetail } from './GoalDetail';
 
 import { useNavigationStore } from './MainApp';
+import { localDateStr, parseLocalDate, addDays, daysUntil, startOfWeekLocal } from '../lib/dates';
 
 interface DashboardProps {
   name: string;
@@ -52,62 +53,95 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [topicsLeft, setTopicsLeft] = useState(0);
   
+  const [weeklyGoal, setWeeklyGoal] = useState(300);
   const [setupTasks, setSetupTasks] = useState({
-    profile: true,
-    interests: true,
-    learningStyle: true,
+    profile: false,
+    interests: false,
+    learningStyle: false,
     course: false,
     materials: false
   });
 
   useEffect(() => {
-    // Quick load of some basic stats if available
-    supabase.from('streaks').select('current_streak').eq('student_id', userId).maybeSingle().then(({data}) => {
-      if (data) setStreak(data.current_streak);
-    });
-    
-    
-        // Check pacing stats
-        import('../lib/pacing').then(async (pacing) => {
-           // We can simulate fetching pacing by just querying the target date
-           let target = null;
-           if (track === 'university') {
-              const { data: sems } = await supabase.from('semesters').select('id, target_end_date').eq('student_id', userId).order('level_year', { ascending: false }).limit(1);
-              if (sems && sems.length > 0 && sems[0].target_end_date) target = new Date(sems[0].target_end_date);
-           } else if (track === 'independent') {
-              const { data: goals } = await supabase.from('learning_goals').select('id, target_date').eq('student_id', userId).order('created_at', { ascending: false }).limit(1);
-              if (goals && goals.length > 0 && goals[0].target_date) target = new Date(goals[0].target_date);
-           } else {
-              const { data: profile } = await supabase.from('student_profiles').select('exam_date, exam_year').eq('id', userId).maybeSingle();
-              if (profile?.exam_date) target = new Date(profile.exam_date);
-              else if (profile?.exam_year) target = new Date(`${profile.exam_year}-06-30`);
-           }
-           
-           if (target) {
-              const msPerDay = 1000 * 60 * 60 * 24;
-              const daysRemaining = Math.max(0, Math.ceil((target.getTime() - new Date().getTime()) / msPerDay));
-              setDaysLeft(daysRemaining);
-              
-              const { data: topics } = await supabase.from('planner_items').select('id', { count: 'exact' }).eq('student_id', userId).eq('completed', false).eq('item_type', 'notes');
-              if (topics && topics.count !== null) {
-                 setTopicsLeft(topics.count);
-              }
-           }
-        });
+    let cancelled = false;
 
-        // Check if they have courses to update the checklist
-    supabase.from('courses').select('id').eq('student_id', userId).limit(1).then(({data}) => {
-      if (data && data.length > 0) {
-        setSetupTasks(prev => ({ ...prev, course: true }));
-        // check materials
-        supabase.from('topics').select('id').limit(1).then(({data: tdata}) => {
-            if (tdata && tdata.length > 0) {
-                setSetupTasks(prev => ({ ...prev, materials: true }));
-            }
-        });
+    async function loadDashboard() {
+      const [profileRes, streakRes, interestsRes, attemptsRes, masteredRes, sessionsRes, semsRes, goalsRes, currRes, notesRes, plannerRes] = await Promise.all([
+        supabase.from('student_profiles').select('track, learning_style_set_at, weekly_goal_minutes, exam_date, exam_year').eq('id', userId).maybeSingle(),
+        supabase.from('streaks').select('current_streak, last_active_date').eq('student_id', userId).maybeSingle(),
+        supabase.from('student_interests').select('interest_id', { count: 'exact', head: true }).eq('student_id', userId),
+        supabase.from('quiz_attempts').select('score, total_questions').eq('student_id', userId),
+        supabase.from('flashcard_reviews').select('id', { count: 'exact', head: true }).eq('student_id', userId).gte('interval_days', 14),
+        supabase.from('study_sessions').select('duration_seconds').eq('student_id', userId).not('duration_seconds', 'is', null).gte('started_at', startOfWeekLocal().toISOString()),
+        supabase.from('semesters').select('id, target_end_date').eq('student_id', userId).order('level_year', { ascending: false }).order('semester_number', { ascending: false }),
+        supabase.from('learning_goals').select('id, target_date').eq('student_id', userId).order('created_at', { ascending: false }),
+        supabase.from('curricula').select('id', { count: 'exact', head: true }).eq('student_id', userId),
+        supabase.from('lecture_notes').select('id', { count: 'exact', head: true }),
+        supabase.from('planner_items').select('id', { count: 'exact', head: true }).eq('student_id', userId).eq('completed', false).eq('item_type', 'notes')
+      ]);
+      if (cancelled) return;
+
+      const profile = profileRes.data;
+      const sems = semsRes.data || [];
+      const goals = goalsRes.data || [];
+
+      // Streak — a streak is only "current" if the student studied today or yesterday
+      const s = streakRes.data;
+      const yesterday = localDateStr(addDays(new Date(), -1));
+      setStreak(s && s.last_active_date && s.last_active_date >= yesterday ? s.current_streak : 0);
+
+      // Quiz average — score is a raw count of correct answers, so convert each attempt to a percentage
+      const attempts = (attemptsRes.data || []).filter(a => a.total_questions > 0);
+      setQuizAverage(attempts.length
+        ? Math.round(attempts.reduce((sum, a) => sum + (a.score / a.total_questions) * 100, 0) / attempts.length)
+        : 0);
+
+      // Cards mastered — reviewed far enough apart that the review interval reached 14+ days
+      setCardsMastered(masteredRes.count || 0);
+
+      // Weekly goal — completed study sessions since Monday
+      const secs = (sessionsRes.data || []).reduce((sum, r) => sum + (r.duration_seconds || 0), 0);
+      setWeeklyMinutes(Math.round(secs / 60));
+      setWeeklyGoal(profile?.weekly_goal_minutes || 300);
+
+      // Courses exist? Courses belong to a semester or a goal; secondary subjects live in curricula
+      let courseCount = currRes.count || 0;
+      if (sems.length > 0) {
+        const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true }).in('semester_id', sems.map(x => x.id));
+        courseCount += count || 0;
       }
-    });
+      if (goals.length > 0) {
+        const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true }).in('goal_id', goals.map(x => x.id));
+        courseCount += count || 0;
+      }
+      if (cancelled) return;
+
+      setSetupTasks({
+        profile: !!profile?.track,
+        interests: (interestsRes.count || 0) > 0,
+        learningStyle: !!profile?.learning_style_set_at,
+        course: courseCount > 0,
+        materials: (notesRes.count || 0) > 0
+      });
+
+      // Countdown to the student's target date
+      const t = profile?.track || track;
+      let target: Date | null = null;
+      if (t === 'university' && sems[0]?.target_end_date) target = parseLocalDate(sems[0].target_end_date);
+      else if (t === 'independent' && goals[0]?.target_date) target = parseLocalDate(goals[0].target_date);
+      else if (t === 'secondary') {
+        if (profile?.exam_date) target = parseLocalDate(profile.exam_date);
+        else if (profile?.exam_year) target = new Date(profile.exam_year, 5, 30);
+      }
+      setDaysLeft(target ? daysUntil(target) : null);
+      setTopicsLeft(plannerRes.count || 0);
+    }
+
+    loadDashboard();
+    return () => { cancelled = true; };
   }, [userId]);
+
+  const weeklyPercent = weeklyGoal > 0 ? Math.min(100, Math.round((weeklyMinutes / weeklyGoal) * 100)) : 0;
 
   const firstName = name ? name.split(' ')[0] : 'Student';
   
@@ -145,7 +179,7 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
                   className="bg-[#6C5CE7] text-white px-7 py-3.5 rounded-full font-bold text-[14px] flex items-center gap-2 hover:bg-[#5B4FE8] transition-colors shadow-sm"
                  >
                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                   Add your first course <ArrowRight className="w-4 h-4" />
+                   {setupTasks.course ? 'Add a course' : 'Add your first course'} <ArrowRight className="w-4 h-4" />
                  </button>
                  <button 
                    onClick={async () => {
@@ -209,6 +243,7 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
               subText="Notes, flashcards & quizzes in one tap" 
               complete={setupTasks.materials} 
               actionText="Generate"
+              onAction={() => setCurrentView('courses')}
               darkButton={true}
               icon={(props: any) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/></svg>}
             />
@@ -222,8 +257,8 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#A5824C]">Streak</span>
              <span className="opacity-70 text-[18px]">🔥</span>
           </div>
-          <div className="font-display font-extrabold text-[40px] tracking-tight text-[#110B29] leading-none mb-3">{streak > 0 ? `${streak} d` : '1 d'}</div>
-          <span className="text-[13.5px] text-[#A5824C] font-semibold leading-tight">{streak === 0 ? 'Day one — keep it alive' : 'Keep it going!'}</span>
+          <div className="font-display font-extrabold text-[40px] tracking-tight text-[#110B29] leading-none mb-3">{`${streak} d`}</div>
+          <span className="text-[13.5px] text-[#A5824C] font-semibold leading-tight">{streak === 0 ? 'Study today to start one' : 'Keep it going!'}</span>
         </div>
         
         <div className="bg-[#EAE4FF] rounded-[28px] p-7 flex flex-col shadow-sm">
@@ -249,8 +284,8 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Weekly Goal</span>
              <TrendingUp className="w-[18px] h-[18px] opacity-70 text-slate-400" />
           </div>
-          <div className="font-display font-extrabold text-[40px] tracking-tight text-[#110B29] leading-none mb-3">0%</div>
-          <span className="text-[13.5px] text-slate-400 font-semibold leading-tight">{weeklyMinutes < 60 ? `${Math.round((weeklyMinutes/60)*100)}% of this week's goal — don't lose your pace` : `Goal crushed`}</span>
+          <div className="font-display font-extrabold text-[40px] tracking-tight text-[#110B29] leading-none mb-3">{weeklyPercent}%</div>
+          <span className="text-[13.5px] text-slate-400 font-semibold leading-tight">{weeklyPercent >= 100 ? `Goal crushed — ${weeklyMinutes} min this week` : `${weeklyMinutes} of ${weeklyGoal} min this week`}</span>
         </div>
       </div>
       

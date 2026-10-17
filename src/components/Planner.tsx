@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, Clock, BookOpen, CheckCircle2, Circle, Plus, ListTodo } from 'lucide-react';
 import { PlannerItem } from '../types';
+import { localDateStr, parseLocalDate, daysUntil } from '../lib/dates';
 
 export function Planner({ userId }: { userId: string }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -15,76 +16,58 @@ export function Planner({ userId }: { userId: string }) {
   const [needsDatePrompt, setNeedsDatePrompt] = useState<{ type: string, id: string } | null>(null);
   const [targetDateInput, setTargetDateInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [topicsLeft, setTopicsLeft] = useState(0);
+  const [planError, setPlanError] = useState('');
 
   useEffect(() => {
     checkPacingStatus();
   }, [userId]);
 
   const checkPacingStatus = async () => {
-    const { data: profile } = await supabase.from('student_profiles').select('track').eq('id', userId).single();
+    const { data: profile } = await supabase.from('student_profiles').select('track, exam_date, exam_year').eq('id', userId).maybeSingle();
     if (!profile) return;
-    setTrack(profile.track || 'secondary');
-    
-    // Check if we need a date
-    if (profile.track === 'university') {
-      const { data: sems } = await supabase.from('semesters').select('id, target_end_date').eq('student_id', userId).order('level_year', { ascending: false }).limit(1);
+    const t = profile.track || 'secondary';
+    setTrack(t);
+
+    // Work out the target date, or ask for one if it's missing
+    let target: Date | null = null;
+    let prompt: { type: string, id: string } | null = null;
+    if (t === 'university') {
+      const { data: sems } = await supabase.from('semesters').select('id, target_end_date').eq('student_id', userId).order('level_year', { ascending: false }).order('semester_number', { ascending: false }).limit(1);
       if (sems && sems.length > 0) {
-         if (!sems[0].target_end_date) {
-            setNeedsDatePrompt({ type: 'semester', id: sems[0].id });
-         } else {
-            // Also check if plan needs generating
-            const { data: items } = await supabase.from('planner_items').select('id').eq('student_id', userId).limit(1);
-            if (!items || items.length === 0) {
-                // First time generate
-                const { adjustStudyPlan } = await import('../lib/pacing');
-                await adjustStudyPlan(userId, 'university');
-            }
-         }
+        if (sems[0].target_end_date) target = parseLocalDate(sems[0].target_end_date);
+        else prompt = { type: 'semester', id: sems[0].id };
       }
-    } else if (profile.track === 'independent') {
+    } else if (t === 'independent') {
       const { data: goals } = await supabase.from('learning_goals').select('id, target_date').eq('student_id', userId).order('created_at', { ascending: false }).limit(1);
       if (goals && goals.length > 0) {
-         if (!goals[0].target_date) {
-            setNeedsDatePrompt({ type: 'goal', id: goals[0].id });
-         } else {
-            const { data: items } = await supabase.from('planner_items').select('id').eq('student_id', userId).limit(1);
-            if (!items || items.length === 0) {
-                const { adjustStudyPlan } = await import('../lib/pacing');
-                await adjustStudyPlan(userId, 'independent');
-            }
-         }
+        if (goals[0].target_date) target = parseLocalDate(goals[0].target_date);
+        else prompt = { type: 'goal', id: goals[0].id };
       }
     } else {
-      // Secondary
-      const { data: items } = await supabase.from('planner_items').select('id').eq('student_id', userId).limit(1);
-      if (!items || items.length === 0) {
-          const { adjustStudyPlan } = await import('../lib/pacing');
-          await adjustStudyPlan(userId, 'secondary');
-      }
+      if (profile.exam_date) target = parseLocalDate(profile.exam_date);
+      else if (profile.exam_year) target = new Date(profile.exam_year, 5, 30);
     }
-    
-    
-        if (!needsDatePrompt) {
-           let target = null;
-           if (profile.track === 'university') {
-              const { data: sems } = await supabase.from('semesters').select('target_end_date').eq('student_id', userId).order('level_year', { ascending: false }).limit(1);
-              if (sems && sems.length > 0 && sems[0].target_end_date) target = new Date(sems[0].target_end_date);
-           } else if (profile.track === 'independent') {
-              const { data: goals } = await supabase.from('learning_goals').select('target_date').eq('student_id', userId).order('created_at', { ascending: false }).limit(1);
-              if (goals && goals.length > 0 && goals[0].target_date) target = new Date(goals[0].target_date);
-           } else {
-              if (profile?.exam_date) target = new Date(profile.exam_date);
-              else if (profile?.exam_year) target = new Date(`${profile.exam_year}-06-30`);
-           }
-           
-           if (target) {
-              const msPerDay = 1000 * 60 * 60 * 24;
-              const dLeft = Math.max(0, Math.ceil((target.getTime() - new Date().getTime()) / msPerDay));
-              setDaysLeft(dLeft);
-              const { data: topics } = await supabase.from('planner_items').select('id', { count: 'exact' }).eq('student_id', userId).eq('completed', false).eq('item_type', 'notes');
-              if (topics && topics.count !== null) setTopicsLeft(topics.count);
-           }
-        }
+
+    if (prompt) {
+      setNeedsDatePrompt(prompt);
+      setLoading(false);
+      return;
+    }
+
+    // First visit with a target date: build the plan once
+    if (target) {
+      const { count: existing } = await supabase.from('planner_items').select('id', { count: 'exact', head: true }).eq('student_id', userId);
+      if (!existing) {
+        const { adjustStudyPlan } = await import('../lib/pacing');
+        const res = await adjustStudyPlan(userId, t);
+        if (res && 'error' in res && res.error) setPlanError(res.error);
+      }
+      setDaysLeft(daysUntil(target));
+      const { count: left } = await supabase.from('planner_items').select('id', { count: 'exact', head: true }).eq('student_id', userId).eq('completed', false).eq('item_type', 'notes');
+      setTopicsLeft(left || 0);
+    }
 
     fetchData();
   };
@@ -114,8 +97,8 @@ export function Planner({ userId }: { userId: string }) {
       end.setDate(0);
     }
     
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
+    const startStr = localDateStr(start);
+    const endStr = localDateStr(end);
 
     const { data } = await supabase
       .from('planner_items')
@@ -147,7 +130,7 @@ export function Planner({ userId }: { userId: string }) {
     e.preventDefault();
     if (!newItemTitle.trim()) return;
     
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = localDateStr(currentDate);
     const newItem = {
       student_id: userId,
       item_type: 'notes',
@@ -215,11 +198,12 @@ export function Planner({ userId }: { userId: string }) {
     }
     
     const { adjustStudyPlan } = await import('../lib/pacing');
-    await adjustStudyPlan(userId, track);
+    const res = await adjustStudyPlan(userId, track);
+    if (res && 'error' in res && res.error) setPlanError(res.error);
     
     setNeedsDatePrompt(null);
     setIsGenerating(false);
-    fetchData();
+    checkPacingStatus();
   };
 
   if (needsDatePrompt) {
@@ -254,7 +238,8 @@ export function Planner({ userId }: { userId: string }) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold font-display mb-1.5 text-ink">Study Planner</h1>
-          <p className="text-[14px] text-ink/60">{(daysLeft !== null && daysLeft > 0) ? `${daysLeft} days left — ${topicsLeft} topics still uncovered before your exam.` : 'Schedule your study sessions and stay on track'}</p>
+          <p className="text-[14px] text-ink/60">{(daysLeft !== null && daysLeft > 0) ? `${daysLeft} days left — ${topicsLeft} topics still to cover before your target date.` : 'Schedule your study sessions and stay on track'}</p>
+          {planError && <p className="text-[13px] text-amber-700 mt-2">{planError}</p>}
         </div>
         
         <div className="flex items-center gap-2">
@@ -313,7 +298,7 @@ export function Planner({ userId }: { userId: string }) {
               <div key={i} className="text-center font-bold text-[12px] text-slate-400 uppercase tracking-wider">{dayNames[i]}</div>
             ))}
             {weekDays.map((d, i) => {
-              const dayItems = items.filter(item => item.scheduled_date === d.toISOString().split('T')[0]);
+              const dayItems = items.filter(item => item.scheduled_date === localDateStr(d));
               const active = isToday(d);
               return (
                 <div 
@@ -349,7 +334,7 @@ export function Planner({ userId }: { userId: string }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {items.filter(item => item.scheduled_date === currentDate.toISOString().split('T')[0]).length === 0 ? (
+            {items.filter(item => item.scheduled_date === localDateStr(currentDate)).length === 0 ? (
               <div className="text-center py-10 bg-white rounded-2xl border border-slate-100 border-dashed">
                 <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="w-6 h-6 text-slate-300" />
@@ -358,7 +343,7 @@ export function Planner({ userId }: { userId: string }) {
                 <button onClick={() => setShowAdd(true)} className="text-accent font-bold text-[13px] hover:underline mt-2">Add a task</button>
               </div>
             ) : (
-              items.filter(item => item.scheduled_date === currentDate.toISOString().split('T')[0]).map(item => (
+              items.filter(item => item.scheduled_date === localDateStr(currentDate)).map(item => (
                 <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl transition-all ${item.completed ? 'bg-surface opacity-60' : 'bg-white shadow-sm border border-slate-100'}`}>
                   <div className="flex items-center gap-4">
                     <button onClick={() => handleToggleComplete(item)} className={`hover:scale-110 transition-transform ${item.completed ? 'text-[#34D399]' : 'text-slate-300 hover:text-accent'}`}>

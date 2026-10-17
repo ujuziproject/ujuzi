@@ -17,7 +17,6 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
     const draft = sessionStorage.getItem('curriculumDraftText');
     if (draft) {
        setText(draft);
-       setInputType('text');
        sessionStorage.removeItem('curriculumDraftText');
     }
   }, []);
