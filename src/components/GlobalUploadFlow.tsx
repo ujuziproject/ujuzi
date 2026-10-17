@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { friendlyDbError } from '../lib/errors';
+import { likelySemesterNumber, weeksFromToday } from '../lib/dates';
 import { CourseUpload } from './CourseUpload';
 import { CurriculumUpload } from './CurriculumUpload';
 import { Folder, Target, ArrowRight, Loader2, ArrowUpRight } from 'lucide-react';
@@ -17,14 +18,18 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
   const [uploadType, setUploadType] = useState<'single' | 'bulk' | null>(null);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState('');
-  const [newGoalDate, setNewGoalDate] = useState('');
+  // Smart defaults: 8 weeks for a goal, the student's own level, and the semester
+  // that matches the time of year.
+  const [newGoalDate, setNewGoalDate] = useState(weeksFromToday(8));
   const [newLevelYear, setNewLevelYear] = useState('1');
-  const [newSemesterNumber, setNewSemesterNumber] = useState('1');
+  const [newSemesterNumber, setNewSemesterNumber] = useState(String(likelySemesterNumber()));
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     async function loadContainers() {
       if (track === 'university') {
+        const { data: profile } = await supabase.from('student_profiles').select('level_year').eq('id', userId).maybeSingle();
+        if (profile?.level_year) setNewLevelYear(String(profile.level_year));
         const { data } = await supabase.from('semesters').select('*').eq('student_id', userId).order('level_year', { ascending: false });
         if (data) {
           setSemesters(data);
@@ -119,8 +124,9 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
               <input type="text" value={newGoalCategory} onChange={e => setNewGoalCategory(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-accent" placeholder="e.g. Cloud Certification" />
             </div>
             <div>
-              <label className="block text-[13px] font-bold text-slate-500 uppercase tracking-wider mb-2">Target Date (Optional)</label>
+              <label className="block text-[13px] font-bold text-slate-500 uppercase tracking-wider mb-2">Target Date</label>
               <input type="date" value={newGoalDate} onChange={e => setNewGoalDate(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-accent" />
+              <p className="text-xs text-slate-500 mt-1.5">Pre-filled 8 weeks from today. Change it, or clear it if you have no deadline.</p>
             </div>
             <button type="submit" disabled={loading} className="w-full bg-accent text-white font-bold py-3.5 px-6 rounded-xl hover:bg-accent/90 transition-colors mt-6 flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Goal & Continue'}

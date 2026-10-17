@@ -180,6 +180,11 @@ export default function App() {
 
   const totalSteps = 6;
 
+  // Goal-gradient head start: the plan is already 20% "ready" on the sign-up screen,
+  // and each step moves it forward, so students never start from zero.
+  const PROGRESS_BY_STEP: Record<number, number> = { 1: 20, 2: 40, 3: 55, 4: 70, 5: 85, 6: 95 };
+  const planProgress = typeof step === 'number' ? PROGRESS_BY_STEP[step] : undefined;
+
   if (loadingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
@@ -227,6 +232,18 @@ export default function App() {
                <p className="text-slate-400 text-[15px] font-medium leading-relaxed max-w-sm">Takes about 3 minutes — then we'll build your first personalized study plan.</p>
             </div>
             
+            {planProgress !== undefined && (
+              <div className="mb-8 shrink-0" aria-label={`Your plan is ${planProgress}% ready`}>
+                <div className="flex justify-between text-[11px] font-bold tracking-[0.1em] uppercase mb-2">
+                  <span className="text-white/70">Your plan is</span>
+                  <span className="text-[#F5A623]">{planProgress}% ready</span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#F5A623] to-[#7C6FF0] transition-all duration-700" style={{ width: `${planProgress}%` }} />
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-6">
                 {[
@@ -280,6 +297,17 @@ export default function App() {
           )}
         </div>
 
+        {planProgress !== undefined && (
+          <div className="md:hidden px-6 pt-4 shrink-0">
+            <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider mb-1.5">
+              <span className="text-slate-500">Your plan</span>
+              <span className="text-accent">{planProgress}% ready</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+              <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${planProgress}%` }} />
+            </div>
+          </div>
+        )}
         <div className="flex-1 flex flex-col p-8 md:p-16 md:pt-12">
           <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col">
             <AnimatePresence mode="wait">

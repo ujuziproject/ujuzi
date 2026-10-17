@@ -683,3 +683,16 @@
   background: rgba(245, 212, 143, 0.1);
   border: 1px solid rgba(245, 212, 143, 0.15);
 }
+
+/* Billing toggle + price anchors (contrast effect: show the higher reference price first) */
+.landing-page .billing-toggle { display: inline-flex; gap: 4px; margin-top: 22px; padding: 4px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-alt); }
+.landing-page .billing-toggle button { border: none; background: transparent; padding: 9px 18px; border-radius: 999px; font: 600 14px var(--font-body); color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.landing-page .billing-toggle button.active { background: var(--ink); color: #fff; }
+.landing-page .billing-toggle .save-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(245,166,35,0.18); color: #B7791F; }
+.landing-page .billing-toggle button.active .save-chip { background: rgba(245,166,35,0.25); color: #F5A623; }
+.landing-page .price-cost .was { font-size: 18px; text-decoration: line-through; color: var(--text-secondary); margin-right: 4px; }
+.landing-page .price-card.featured .price-cost .was { color: var(--text-on-ink-soft); }
+.landing-page .price-anchor { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--accent-primary); }
+.landing-page .price-card.featured .price-anchor { color: #F5A623; }
+.landing-page .price-cost { flex-wrap: wrap; row-gap: 2px; }
+.landing-page .price-cost .per { white-space: nowrap; }

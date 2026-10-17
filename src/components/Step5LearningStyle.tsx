@@ -132,6 +132,23 @@ export function Step5LearningStyle({ userId, onNext }: Step5Props) {
 
  const isComplete = answers.filter(a => a !== '').length === 8;
 
+ // Smart default for students who'd rather not answer: balanced format,
+ // simple explanations first (works well for most students; changeable in Settings).
+ const useRecommended = async () => {
+ setSubmitting(true);
+ setError('');
+ const { error } = await supabase.from('student_profiles').update({
+ content_format_preference: 'balanced',
+ explanation_complexity_preference: 'simple'
+ }).eq('id', userId);
+ if (error) {
+ setError('Failed to save preferences. Please try again.');
+ setSubmitting(false);
+ return;
+ }
+ onNext();
+ };
+
  return (
  <div className="w-full max-w-xl mx-auto ">
  <div className="mb-8 text-center">
@@ -188,6 +205,11 @@ export function Step5LearningStyle({ userId, onNext }: Step5Props) {
  )}
  </div>
  {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}
+ <div className="text-center mt-8">
+ <button onClick={useRecommended} disabled={submitting} className="text-sm font-semibold text-slate-500 hover:text-accent underline underline-offset-4 disabled:opacity-50">
+ Skip — use recommended settings (you can change them later)
+ </button>
+ </div>
  </div>
  );
 }

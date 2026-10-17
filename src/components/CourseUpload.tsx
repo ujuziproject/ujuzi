@@ -4,6 +4,7 @@ import { authFetch, apiError } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { GenerationIssues } from './GenerationIssues';
 import { generateForTopics } from '../lib/generation';
+import { loadTryItPlan, clearTryItPlan, tryItDraftText, applyHardTopics } from '../lib/tryItPlan';
 import { Loader2, Search } from 'lucide-react';
 
 export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplete }: { userId: string, semesterId?: string, goalId?: string, bulk: boolean, onUploadComplete: () => void }) {
@@ -20,11 +21,16 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
   const [prefs, setPrefs] = useState<{contentFormat?: string, explanationComplexity?: string}>({});
   const [findingCurriculum, setFindingCurriculum] = useState(false);
 
+  // Pre-fill with the plan they built in "Try it" before signing up
+  const [hardTitles, setHardTitles] = useState<string[]>([]);
+  const [fromTryIt, setFromTryIt] = useState(false);
   useEffect(() => {
-    const draft = sessionStorage.getItem('curriculumDraftText');
-    if (draft) {
-       setText(draft);
-       sessionStorage.removeItem('curriculumDraftText');
+    const plan = loadTryItPlan();
+    if (plan) {
+      setText(tryItDraftText(plan));
+      if (!bulk) setTitle(plan.name);
+      setHardTitles(plan.hard);
+      setFromTryIt(true);
     }
   }, []);
 
@@ -138,6 +144,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
       }
 
       if (allSavedTopics.length === 0) throw new Error('No topics were found in that outline. Try pasting more detail.');
+      if (fromTryIt) clearTryItPlan(); // it's now a real course
       setSavedTopics(allSavedTopics);
       setStatus('diagnostic');
       
@@ -151,7 +158,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
   const handleDiagnosticComplete = async (topicsWithDepth: any[]) => {
     setStatus('generating');
     const { failed, firstError } = await generateForTopics(
-      topicsWithDepth,
+      applyHardTopics(topicsWithDepth, hardTitles),
       { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
       (done, total) => setProgressMsg(`Generating materials for topic ${done} of ${total}...`)
     );

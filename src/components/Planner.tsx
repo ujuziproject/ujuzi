@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, Clock, BookOpen, CheckCircle2, Circle, Plus, ListTodo } from 'lucide-react';
 import { PlannerItem } from '../types';
-import { localDateStr, parseLocalDate, daysUntil } from '../lib/dates';
+import { localDateStr, parseLocalDate, daysUntil, weeksFromToday } from '../lib/dates';
 
 export function Planner({ userId }: { userId: string }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -51,6 +51,8 @@ export function Planner({ userId }: { userId: string }) {
     }
 
     if (prompt) {
+      // Smart default: a typical semester has ~14 weeks left mid-way; a goal ~8 weeks
+      setTargetDateInput(weeksFromToday(prompt.type === 'semester' ? 14 : 8));
       setNeedsDatePrompt(prompt);
       setLoading(false);
       return;
@@ -214,7 +216,7 @@ export function Planner({ userId }: { userId: string }) {
               <Calendar className="w-8 h-8 text-accent" />
            </div>
            <h2 className="text-2xl font-bold text-ink mb-3 font-display">When is your target date?</h2>
-           <p className="text-slate-500 mb-8 text-[15px]">To build your study plan, we need to know when your {needsDatePrompt.type === 'semester' ? 'semester ends' : 'goal needs to be met'}.</p>
+           <p className="text-slate-500 mb-8 text-[15px]">To build your study plan, we need to know when your {needsDatePrompt.type === 'semester' ? 'semester ends' : 'goal needs to be met'}. We've suggested a date — adjust it if yours is different.</p>
            
            <form onSubmit={handleSaveDate} className="space-y-4">
               <input 

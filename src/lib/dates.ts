@@ -35,3 +35,23 @@ export function startOfWeekLocal(d: Date = new Date()): Date {
   out.setDate(out.getDate() - (dow === 0 ? 6 : dow - 1));
   return out;
 }
+
+// ---- Smart defaults ----
+
+// Nigerian universities usually run First Semester from about September to February
+// and Second Semester from about March to August.
+export function likelySemesterNumber(d: Date = new Date()): 1 | 2 {
+  const m = d.getMonth() + 1; // 1–12
+  return m >= 9 || m <= 2 ? 1 : 2;
+}
+
+// WAEC/NECO/JAMB sittings happen in the first half of the year, so from July
+// onwards the next sitting is next year.
+export function likelyExamYear(d: Date = new Date()): number {
+  return d.getMonth() + 1 >= 7 ? d.getFullYear() + 1 : d.getFullYear();
+}
+
+// A sensible pre-filled target date, N weeks from today, as YYYY-MM-DD.
+export function weeksFromToday(weeks: number): string {
+  return localDateStr(addDays(new Date(), weeks * 7));
+}

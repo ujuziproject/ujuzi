@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { friendlyAuthError } from '../lib/errors';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { loadTryItPlan } from '../lib/tryItPlan';
 
 interface Step1Props {
  onNext: (userId: string, name: string) => void;
@@ -10,6 +11,7 @@ interface Step1Props {
 }
 
 export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
+ const [plan] = useState(() => loadTryItPlan());
  const [fullName, setFullName] = useState('');
  const [email, setEmail] = useState('');
  const [password, setPassword] = useState('');
@@ -56,9 +58,16 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  return (
  <div className="w-full max-w-md mx-auto ">
  <div className="text-center mb-10">
- <h1 className="text-3xl font-bold text-ink mb-2">Join uJuzi</h1>
- <p className="text-slate-500">Create your student account to get started.</p>
+ <h1 className="text-3xl font-bold text-ink mb-2">{plan ? 'Save your study plan' : 'Join uJuzi'}</h1>
+ <p className="text-slate-500">{plan ? "One quick step and it's yours to keep." : 'Create your student account to get started.'}</p>
  </div>
+
+ {plan && (
+ <div className="mb-6 p-4 rounded-2xl border border-accent/30 bg-accent/5 text-sm text-ink">
+ <div className="font-bold mb-0.5">“{plan.name}” · {plan.topics.length} {plan.topics.length === 1 ? 'topic' : 'topics'}{plan.hard.length ? ` · ${plan.hard.length} marked hard` : ''}</div>
+ <div className="text-slate-500">Create your account and we'll build notes, flashcards and quizzes for it right after setup.</div>
+ </div>
+ )}
 
  <form onSubmit={handleSubmit} className="space-y-4">
  {error && (

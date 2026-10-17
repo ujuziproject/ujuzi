@@ -26,6 +26,9 @@ export function Step4Interests({ userId, onNext }: Step4Props) {
  
  if (error) throw error;
  setInterests(data || []);
+ // Smart default: start with a few popular picks so it's "adjust", not "fill in"
+ const popular = ['Technology', 'Music', 'Movies & TV'];
+ setSelectedIds(new Set((data || []).filter(i => popular.includes(i.name)).map(i => i.id)));
  } catch (err: any) {
  setError('Failed to load interests. Please try again later.');
  } finally {
@@ -78,7 +81,7 @@ export function Step4Interests({ userId, onNext }: Step4Props) {
  <div className="w-full max-w-xl mx-auto slide-in-from-right-4 ">
  <div className="mb-10 text-center">
  <h1 className="text-3xl font-bold text-ink mb-2">What interests you?</h1>
- <p className="text-slate-500">Select at least three areas you are passionate about to personalize your learning dashboard.</p>
+ <p className="text-slate-500">We've picked a few popular ones to start. Tap to add or remove — this shapes your reading library.</p>
  </div>
 
  {error && (

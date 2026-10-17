@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { friendlyDbError } from '../lib/errors';
+import { likelySemesterNumber } from '../lib/dates';
 import { Semester, Course } from '../types';
 import { Folder, Plus, ArrowLeft, BookOpen } from 'lucide-react';
 
@@ -8,9 +9,15 @@ export function SemesterList({ userId, onOpenSemester }: { userId: string, onOpe
   const [semesters, setSemesters] = useState<(Semester & { course_count: number })[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [level, setLevel] = useState(1);
-  const [term, setTerm] = useState(1);
+  const [term, setTerm] = useState<number>(likelySemesterNumber());
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Smart default: pre-fill the student's own level
+  useEffect(() => {
+    supabase.from('student_profiles').select('level_year').eq('id', userId).maybeSingle()
+      .then(({ data }) => { if (data?.level_year) setLevel(data.level_year); });
+  }, [userId]);
 
   useEffect(() => {
     fetchSemesters();

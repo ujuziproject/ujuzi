@@ -9,6 +9,7 @@ import { GoalDetail } from './GoalDetail';
 
 import { useNavigationStore } from './MainApp';
 import { localDateStr, parseLocalDate, addDays, daysUntil, startOfWeekLocal } from '../lib/dates';
+import { loadTryItPlan } from '../lib/tryItPlan';
 
 interface DashboardProps {
   name: string;
@@ -54,6 +55,7 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
   const [topicsLeft, setTopicsLeft] = useState(0);
   
   const [weeklyGoal, setWeeklyGoal] = useState(300);
+  const [pendingPlan] = useState(() => loadTryItPlan());
   const [setupTasks, setSetupTasks] = useState({
     profile: false,
     interests: false,
@@ -150,6 +152,17 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
 
   return (
     <div className="w-full animate-in fade-in duration-500">
+      {pendingPlan && (
+        <div className="mb-6 rounded-[24px] border border-[#F5A623]/40 bg-[#FFF6D9] p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4" role="status">
+          <div>
+            <div className="font-bold text-[#110B29] text-[16px]">“{pendingPlan.name}” isn't saved yet</div>
+            <div className="text-[14px] text-[#7A5B1E] mt-0.5">The {pendingPlan.topics.length} {pendingPlan.topics.length === 1 ? 'topic' : 'topics'} you mapped out before signing up are only in this browser. Save them as a course so you don't lose them.</div>
+          </div>
+          <button onClick={() => setDashboardView('upload')} className="shrink-0 bg-[#110B29] text-white px-6 py-3 rounded-full font-bold text-[14px] flex items-center gap-2 hover:bg-[#1A114D] transition-colors">
+            Save my plan <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {/* Hero section */}
       <div className="bg-gradient-to-br from-[#271E42] via-[#2D1F5B] to-[#43236C] rounded-[32px] p-10 md:p-14 mb-10 relative overflow-hidden text-white shadow-sm flex flex-col md:flex-row justify-between items-center gap-8">
          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>

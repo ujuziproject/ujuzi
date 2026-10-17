@@ -7,6 +7,7 @@ import { CurriculumResults } from './CurriculumResults';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { GenerationIssues } from './GenerationIssues';
 import { generateForTopics } from '../lib/generation';
+import { loadTryItPlan, clearTryItPlan, tryItDraftText, applyHardTopics } from '../lib/tryItPlan';
 import { recordActivity } from '../lib/activity';
 
 interface CurriculumUploadProps {
@@ -32,12 +33,17 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
   
   const [findingCurriculum, setFindingCurriculum] = useState(false);
 
+  // Pre-fill with the plan they built in "Try it" before signing up
+  const [hardTitles, setHardTitles] = useState<string[]>([]);
+  const [fromTryIt, setFromTryIt] = useState(false);
   useEffect(() => {
-    const draft = sessionStorage.getItem('curriculumDraftText');
-    if (draft) {
-       setText(draft);
-       setInputType('text');
-       sessionStorage.removeItem('curriculumDraftText');
+    const plan = loadTryItPlan();
+    if (plan) {
+      setText(tryItDraftText(plan));
+      setTitle(plan.name);
+      setInputType('text');
+      setHardTitles(plan.hard);
+      setFromTryIt(true);
     }
   }, []);
 
@@ -158,6 +164,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
         .select();
         
       if (topicsError) throw topicsError;
+      if (fromTryIt) clearTryItPlan(); // it's now a real course
 
       setSavedTopics(savedTopics);
       setStatus('diagnostic');
@@ -176,7 +183,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
     try {
       const prefs = JSON.parse(localStorage.getItem('study_preferences') || '{}');
       const { failed, firstError } = await generateForTopics(
-        topicsWithDepth,
+        applyHardTopics(topicsWithDepth, hardTitles),
         { contentFormat: prefs.contentFormat, explanationComplexity: prefs.explanationComplexity },
         (done, total) => setProgressMsg(`Generating materials for Topic ${done} of ${total}...`)
       );

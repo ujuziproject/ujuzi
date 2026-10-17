@@ -40,6 +40,7 @@ export function LandingPage({ onLogin, onGetStarted, onTryIt, onNavigate }: Land
   const { theme, toggleTheme } = useTheme();
   const cycleWords = ['WAEC syllabus', 'course outline', 'certification path'];
   const [cycleIndex, setCycleIndex] = useState(0);
+  const [billing, setBilling] = useState<'monthly' | 'semester'>('semester'); // default to the plan that shows the saving
   const [wordOpacity, setWordOpacity] = useState(1);
   
   useEffect(() => {
@@ -113,7 +114,7 @@ export function LandingPage({ onLogin, onGetStarted, onTryIt, onNavigate }: Land
             <p className="hero-sub">Upload your actual curriculum — WAEC, a university course outline, or a certification you're chasing — and uJuzi turns it into notes, flashcards and quizzes built for exactly what you're tested on.</p>
             <div className="hero-ctas">
               <button onClick={onGetStarted} className="pill pill-primary border-none">Get started free →</button>
-              <button onClick={onTryIt} className="pill pill-outline-dark cursor-pointer">Try it now</button>
+              <button onClick={onTryIt} className="pill pill-outline-dark cursor-pointer">Try it free — no sign-up</button>
             </div>
           </div>
           <div className="float-stage">
@@ -306,6 +307,10 @@ export function LandingPage({ onLogin, onGetStarted, onTryIt, onNavigate }: Land
             <div className="section-eyebrow">Pricing</div>
             <h2>Start free. Upgrade when you're ready.</h2>
             <p>Real prices coming soon — these are placeholder tiers to shape the plan.</p>
+            <div className="billing-toggle" role="group" aria-label="Billing period">
+              <button type="button" onClick={() => setBilling('monthly')} aria-pressed={billing === 'monthly'} className={billing === 'monthly' ? 'active' : ''}>Monthly</button>
+              <button type="button" onClick={() => setBilling('semester')} aria-pressed={billing === 'semester'} className={billing === 'semester' ? 'active' : ''}>Per semester <span className="save-chip">Save 20%</span></button>
+            </div>
           </div>
           <div className="pricing-grid">
             <div className="price-card">
@@ -323,7 +328,17 @@ export function LandingPage({ onLogin, onGetStarted, onTryIt, onNavigate }: Land
             <div className="price-card featured">
               <div className="price-badge">MOST POPULAR</div>
               <div className="price-name">Scholar</div>
-              <div className="price-cost"><span className="amt">₦2,500</span><span className="per">/ month</span></div>
+              {billing === 'monthly' ? (
+                <>
+                  <div className="price-cost"><span className="amt">₦2,500</span><span className="per">/ month</span></div>
+                  <p className="price-anchor">About ₦83 a day</p>
+                </>
+              ) : (
+                <>
+                  <div className="price-cost"><span className="was">₦10,000</span><span className="amt">₦8,000</span><span className="per">/ semester</span></div>
+                  <p className="price-anchor">4 months · about ₦67 a day · you save ₦2,000</p>
+                </>
+              )}
               <p className="price-desc">For a full semester or exam prep season.</p>
               <ul className="price-list">
                 <li>Unlimited curriculum uploads</li>

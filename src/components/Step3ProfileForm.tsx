@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Track, ExamType } from '../types';
 import { Loader2 } from 'lucide-react';
 import { UniversityDropdown } from './UniversityDropdown';
+import { likelyExamYear } from '../lib/dates';
 
 interface Step3Props {
  userId: string;
@@ -17,7 +18,7 @@ export function Step3ProfileForm({ userId, track, onNext, onBack }: Step3Props) 
 
  // Secondary states
  const [examType, setExamType] = useState<ExamType>('WAEC');
- const [examYear, setExamYear] = useState<string>(new Date().getFullYear().toString());
+ const [examYear, setExamYear] = useState<string>(String(likelyExamYear()));
 
  // University states
  const [universityId, setUniversityId] = useState('');
@@ -113,8 +114,9 @@ export function Step3ProfileForm({ userId, track, onNext, onBack }: Step3Props) 
  value={examYear}
  onChange={(e) => setExamYear(e.target.value)}
  className="block w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-colors"
- placeholder="e.g. 2025"
+ placeholder="e.g. 2027"
  />
+ <p className="text-xs text-slate-500 mt-1">Pre-filled with the next exam season. Change it if yours is different.</p>
  </div>
  </>
  )}

@@ -18,6 +18,7 @@ import { Profile } from './Profile';
 import { Loader2, LayoutGrid, Folder, TrendingUp, Settings, LogOut, ChevronRight, Moon, Sun, Search, Bell, Library, CheckSquare, Calendar, BookOpen, Activity } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { cn } from '../lib/utils';
+import { localDateStr, addDays } from '../lib/dates';
 
 interface MainAppProps {
   name: string;
@@ -78,6 +79,7 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState('secondary');
   const [streakDays, setStreakDays] = useState(0);
+  const [studiedToday, setStudiedToday] = useState(false);
   const [dashboardView, setDashboardView] = useState<'loading' | 'home' | 'upload' | 'curriculum' | 'semesterDetail' | 'courseDetail' | 'goalDetail'>('loading');
   const [dashboardCurriculumId, setDashboardCurriculumId] = useState<string | null>(null);
   const [dashboardSemesterId, setDashboardSemesterId] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
     async function loadData() {
       const [profileRes, streaksRes, quizRes, flashcardRes, interestRes, currRes] = await Promise.all([
         supabase.from('student_profiles').select('track').eq('id', userId).maybeSingle(),
-        supabase.from('streaks').select('current_streak').eq('student_id', userId).maybeSingle(),
+        supabase.from('streaks').select('current_streak, last_active_date').eq('student_id', userId).maybeSingle(),
         supabase.from('quiz_attempts').select('*', { count: 'exact', head: true }).eq('student_id', userId),
         supabase.from('flashcard_reviews').select('*', { count: 'exact', head: true }).eq('student_id', userId),
         supabase.from('student_interests').select('*', { count: 'exact', head: true }).eq('student_id', userId),
@@ -98,8 +100,13 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
       
       if (profileRes.data?.track) setTrack(profileRes.data.track);
 
-      const streakDays = streaksRes.data?.current_streak || 0;
+      // A streak only counts if they studied today or yesterday
+      const lastActive = streaksRes.data?.last_active_date || '';
+      const today = localDateStr();
+      const yesterday = localDateStr(addDays(new Date(), -1));
+      const streakDays = lastActive >= yesterday ? (streaksRes.data?.current_streak || 0) : 0;
       setStreakDays(streakDays);
+      setStudiedToday(lastActive === today);
       const quizzes = quizRes.count || 0;
       const flashcards = flashcardRes.count || 0;
       const interests = interestRes.count || 0;
@@ -201,8 +208,14 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
         <div className="mt-6 px-1">
            <div className="bg-white/5 border border-white/5 rounded-tl-[24px] rounded-tr-[24px] rounded-bl-lg rounded-br-[24px] p-5 backdrop-blur-md">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#F5A623] mb-1.5">Streak</div>
-              <div className="font-display font-extrabold text-[22px] tracking-tight mb-0.5">{streakDays} days <span className="opacity-90">🔥</span></div>
-              <div className="text-[12px] text-white/50 font-medium">Keep it alive — 20 min today.</div>
+              <div className="font-display font-extrabold text-[22px] tracking-tight mb-0.5">{streakDays} {streakDays === 1 ? 'day' : 'days'} <span className="opacity-90">🔥</span></div>
+              <div className={cn("text-[12px] font-medium", streakDays > 0 && !studiedToday ? "text-[#F5A623]" : "text-white/50")}>
+                {streakDays === 0
+                  ? 'Study today to start a streak.'
+                  : studiedToday
+                    ? 'Safe for today. See you tomorrow.'
+                    : `Study today or lose your ${streakDays}-day streak.`}
+              </div>
            </div>
         </div>
       </div>
