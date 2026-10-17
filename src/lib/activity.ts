@@ -1,5 +1,6 @@
 import { checkAndAwardBadges } from './badges';
 import { supabase } from './supabase';
+import { localDateStr, parseLocalDate } from './dates';
 
 export type ActivityType = 'login' | 'quiz_completed' | 'flashcard_reviewed' | 'material_generated' | 'curriculum_uploaded';
 
@@ -20,7 +21,7 @@ export async function recordActivity(studentId: string, activityType: ActivityTy
       .eq('student_id', studentId)
       .maybeSingle();
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr();
 
     if (!streakData) {
       // Insert new streak
@@ -34,10 +35,9 @@ export async function recordActivity(studentId: string, activityType: ActivityTy
       const lastActive = streakData.last_active_date;
       if (lastActive !== todayStr) {
         // Calculate difference in days
-        const lastDate = new Date(lastActive);
-        const today = new Date(todayStr);
-        const diffTime = Math.abs(today.getTime() - lastDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const lastDate = parseLocalDate(lastActive);
+        const today = parseLocalDate(todayStr);
+        const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
 
         let newCurrentStreak = streakData.current_streak;
         

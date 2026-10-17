@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { localDateStr, addDays } from './dates';
 
 export async function checkAndAwardBadges(userId: string) {
   try {
@@ -92,13 +93,13 @@ export async function checkAndAwardBadges(userId: string) {
        // We can approximate this by checking streak_days >= 5, but let's see if we can do exactly flashcard reviews
        // Or easier: activity_log with type 'flashcard_reviewed' on 5 distinct consecutive dates
        const { data: logs } = await supabase.from('activity_log')
-         .select('created_at')
+         .select('occurred_at')
          .eq('student_id', userId)
          .eq('activity_type', 'flashcard_reviewed')
-         .order('created_at', { ascending: false });
+         .order('occurred_at', { ascending: false });
          
        if (logs && logs.length > 0) {
-          const dates = [...new Set(logs.map(l => l.created_at.split('T')[0]))].sort().reverse();
+          const dates = [...new Set(logs.map(l => localDateStr(new Date(l.occurred_at))))].sort().reverse();
           let maxConsecutive = 1;
           let current = 1;
           for (let i = 0; i < dates.length - 1; i++) {
@@ -120,16 +121,15 @@ export async function checkAndAwardBadges(userId: string) {
 
     // 5. Perfect Week (activity on all 7 of last 7 calendar days)
     if (criteriaNeeded.has('perfect_week')) {
-       const today = new Date();
-       const sevenDaysAgo = new Date(today);
-       sevenDaysAgo.setDate(today.getDate() - 7);
+       const sixDaysAgo = addDays(new Date(), -6);
+       sixDaysAgo.setHours(0, 0, 0, 0);
        const { data: logs } = await supabase.from('activity_log')
-         .select('created_at')
+         .select('occurred_at')
          .eq('student_id', userId)
-         .gte('created_at', sevenDaysAgo.toISOString().split('T')[0]);
+         .gte('occurred_at', sixDaysAgo.toISOString());
          
        if (logs && logs.length > 0) {
-          const dates = new Set(logs.map(l => l.created_at.split('T')[0]));
+          const dates = new Set(logs.map(l => localDateStr(new Date(l.occurred_at))));
           for (const b of unearnedBadges.filter(b => b.criteria_type === 'perfect_week')) {
              if (dates.size >= 7) newEarned.push(b);
           }

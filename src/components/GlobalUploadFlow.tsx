@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { friendlyDbError } from '../lib/errors';
 import { CourseUpload } from './CourseUpload';
 import { CurriculumUpload } from './CurriculumUpload';
 import { Folder, Target, ArrowRight, Loader2, ArrowUpRight } from 'lucide-react';
@@ -19,6 +20,7 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
   const [newGoalDate, setNewGoalDate] = useState('');
   const [newLevelYear, setNewLevelYear] = useState('1');
   const [newSemesterNumber, setNewSemesterNumber] = useState('1');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     async function loadContainers() {
@@ -82,12 +84,14 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
     e.preventDefault();
     if (!newGoalTitle.trim()) return;
     setLoading(true);
+    setFormError('');
     const { data, error } = await supabase.from('learning_goals').insert({
       student_id: userId,
       goal_title: newGoalTitle,
       category: newGoalCategory,
       target_date: newGoalDate || null
     }).select('*').single();
+    if (error) setFormError(friendlyDbError(error, 'this goal'));
     if (data) {
        setGoals([data]);
        setSelectedContainer(data.id);
@@ -121,6 +125,7 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
             <button type="submit" disabled={loading} className="w-full bg-accent text-white font-bold py-3.5 px-6 rounded-xl hover:bg-accent/90 transition-colors mt-6 flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Goal & Continue'}
             </button>
+            {formError && <p className="text-sm text-red-600 mt-3 text-center" role="alert">{formError}</p>}
          </form>
       </div>
     );
@@ -129,11 +134,13 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
   const handleCreateInlineSemester = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setFormError('');
     const { data, error } = await supabase.from('semesters').insert({
       student_id: userId,
       level_year: Number(newLevelYear) || 1,
       semester_number: Number(newSemesterNumber) || 1
     }).select('*').single();
+    if (error) setFormError(friendlyDbError(error, 'this semester'));
     if (data) {
        setSemesters([data]);
        setSelectedContainer(data.id);
@@ -173,6 +180,7 @@ export function GlobalUploadFlow({ userId, track, onUploadComplete }: { userId: 
               <button type="submit" disabled={loading} className="w-full bg-accent text-white font-bold py-3.5 px-6 rounded-xl hover:bg-accent/90 transition-colors mt-6 flex items-center justify-center gap-2">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Semester & Continue'}
               </button>
+            {formError && <p className="text-sm text-red-600 mt-3 text-center" role="alert">{formError}</p>}
            </form>
         </div>
       );

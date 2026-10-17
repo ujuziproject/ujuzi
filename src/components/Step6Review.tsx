@@ -103,11 +103,13 @@ export function Step6Review({ userId, onNext }: Step6Props) {
   if (profile?.track === 'university') {
     const { data: existingSems } = await supabase.from('semesters').select('id').eq('student_id', userId).limit(1);
     if (!existingSems || existingSems.length === 0) {
-       await supabase.from('semesters').insert({
+       const { error: semError } = await supabase.from('semesters').insert({
          student_id: userId,
          level_year: profile.level_year || 1,
          semester_number: 1
        });
+       // A duplicate (23505) means the semester already exists, which is fine
+       if (semError && semError.code !== '23505') throw semError;
     }
   }
 

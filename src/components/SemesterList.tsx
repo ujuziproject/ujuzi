@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { friendlyDbError } from '../lib/errors';
 import { Semester, Course } from '../types';
 import { Folder, Plus, ArrowLeft, BookOpen } from 'lucide-react';
 
@@ -8,6 +9,8 @@ export function SemesterList({ userId, onOpenSemester }: { userId: string, onOpe
   const [isCreating, setIsCreating] = useState(false);
   const [level, setLevel] = useState(1);
   const [term, setTerm] = useState(1);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchSemesters();
@@ -26,12 +29,15 @@ export function SemesterList({ userId, onOpenSemester }: { userId: string, onOpe
   };
 
   const handleCreate = async () => {
+    setSaving(true);
+    setFormError('');
     const { data, error } = await supabase.from('semesters').insert({
       student_id: userId,
       level_year: level,
       semester_number: term
     }).select().single();
-    
+    setSaving(false);
+    if (error) setFormError(friendlyDbError(error, 'this semester'));
     if (data) {
       setIsCreating(false);
       fetchSemesters();
@@ -66,9 +72,10 @@ export function SemesterList({ userId, onOpenSemester }: { userId: string, onOpe
               </select>
             </div>
           </div>
-          <button onClick={handleCreate} className="w-full bg-ink text-white px-6 py-4 rounded-full font-bold hover:bg-ink/90 transition-colors shadow-sm">
-            Create Semester
+          <button onClick={handleCreate} disabled={saving} className="w-full disabled:opacity-60 bg-ink text-white px-6 py-4 rounded-full font-bold hover:bg-ink/90 transition-colors shadow-sm">
+            {saving ? 'Creating…' : 'Create Semester'}
           </button>
+          {formError && <p className="text-sm text-red-600 mt-3 text-center" role="alert">{formError}</p>}
         </div>
       </div>
     );
