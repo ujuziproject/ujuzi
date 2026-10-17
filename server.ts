@@ -3,12 +3,54 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '50mb' }));
+  // Cloud Run / Cloudflare sit in front of this server; trust the first proxy so
+  // rate limits see the student's real IP instead of the proxy's.
+  app.set('trust proxy', 1);
+
+  // 15mb covers a ~10MB PDF sent as base64 to the public preview route.
+  app.use(express.json({ limit: '15mb' }));
+
+  // ---------------------------------------------------------------------------
+  // Auth: every /api route except /api/public/* requires a logged-in Supabase user.
+  // The browser sends its Supabase access token as "Authorization: Bearer <token>".
+  // ---------------------------------------------------------------------------
+  const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const supabaseAuth = SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
+
+  const requireUser: express.RequestHandler = async (req, res, next) => {
+    if (req.path.startsWith('/public/')) return next();
+    if (!supabaseAuth) return res.status(500).json({ error: 'Server is missing SUPABASE_URL / SUPABASE_ANON_KEY.' });
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'Please log in again.' });
+    const { data, error } = await supabaseAuth.auth.getUser(token);
+    if (error || !data?.user) return res.status(401).json({ error: 'Your session has expired. Please log in again.' });
+    res.locals.userId = data.user.id;
+    next();
+  };
+
+  // Per-student limit on AI calls. One full semester upload (8 courses x ~10 topics)
+  // is roughly 100 calls, so 300/hour leaves room while capping abuse.
+  const userApiLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 300,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req) => req.path.startsWith('/public/'),
+    keyGenerator: (_req, res) => String(res.locals.userId),
+    message: { error: "You've hit the hourly limit for AI generation. Please try again in a little while." }
+  });
+
+  app.use('/api', requireUser, userApiLimiter);
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -16,7 +58,9 @@ async function startServer() {
 
   const publicApiLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // Limit each IP to 5 requests per windowMs
+    limit: 5, // Limit each IP to 5 requests per windowMs
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
     message: { error: 'Too many requests from this IP, please try again after an hour' }
   });
 
@@ -24,6 +68,15 @@ async function startServer() {
     try {
       const { text, fileData } = req.body;
       let response;
+
+      // Anyone can call this route, so keep inputs small and to the expected types
+      const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+      if (fileData && (!ALLOWED_TYPES.includes(fileData.mimeType) || typeof fileData.data !== 'string' || fileData.data.length > 14_000_000)) {
+        return res.status(400).json({ error: 'Please upload a PDF or image under 10MB.' });
+      }
+      if (!fileData && (typeof text !== 'string' || text.trim().length === 0 || text.length > 30_000)) {
+        return res.status(400).json({ error: 'Please paste between 1 and 30,000 characters of syllabus text.' });
+      }
 
       const prompt = `Extract a list of topics from this curriculum document. Return an array of objects, where each object has { subject_name, title, description }. The subject_name should be a broad category, title should be the specific topic, and description should be a 1-2 sentence summary of what to study.`;
 
@@ -153,26 +206,31 @@ async function startServer() {
       const searchPrompt = `Find the official course outline or curriculum for the course "${courseName}"${university ? ` at ${university}` : ''}. ${contextStr} If you find a reliable real curriculum, summarize it into a structured text syllabus. If you cannot find a specific one for this university, generate a high-quality standard syllabus for this course at this level. 
       IMPORTANT: Your response MUST start with either [REAL] if you found and are summarizing an actual curriculum from search, or [FALLBACK] if you are generating a general one. Following that tag, provide the full text of the curriculum/syllabus.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: searchPrompt,
-        // tools: [{ googleSearch: {} }]
-      });
+      // Search the web first. If search isn't available, fall back to a general syllabus.
+      let response;
+      let searched = true;
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: searchPrompt,
+          config: { tools: [{ googleSearch: {} }] }
+        });
+      } catch (searchErr: any) {
+        console.warn('Google Search grounding failed, using general syllabus:', searchErr?.message);
+        searched = false;
+        response = await ai.models.generateContent({ model: 'gemini-3.6-flash', contents: searchPrompt });
+      }
 
       if (response.text) {
          let text = response.text.trim();
-         let isReal = false;
-         if (text.startsWith('[REAL]')) {
-             isReal = true;
-             text = text.replace('[REAL]', '').trim();
-         } else if (text.startsWith('[FALLBACK]')) {
-             isReal = false;
-             text = text.replace('[FALLBACK]', '').trim();
-         } else {
-             // Fallback if tag is missing
-             isReal = !!(response.candidates?.[0]?.groundingMetadata?.searchEntryPoint);
-         }
-         res.json({ text, isReal });
+         const claimedReal = text.startsWith('[REAL]');
+         text = text.replace(/^\[(REAL|FALLBACK)\]/, '').trim();
+         // Only call it "real" if the model said so AND it actually cited web sources
+         const sources = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+           .map((c: any) => c.web?.uri)
+           .filter(Boolean);
+         const isReal = searched && claimedReal && sources.length > 0;
+         res.json({ text, isReal, sources: isReal ? sources.slice(0, 5) : [] });
       } else {
         res.status(500).json({ error: 'Failed to generate curriculum' });
       }
@@ -190,7 +248,12 @@ async function startServer() {
       const prompt = `Here is a student's curriculum/syllabus. Break it down into a structured list of subjects and topics. For each topic, provide: subject_name, title, and a one-sentence description. Return this as JSON in the format: [{"subject_name": "...", "title": "...", "description": "..."}, ...]`;
 
       if (fileUrl && fileMimeType) {
-        // Fetch the file from the provided URL
+        // Only fetch signed URLs for files in THIS student's folder of the curricula bucket.
+        // Anything else is refused, so the server can't be used to fetch arbitrary URLs.
+        const allowedPrefix = `${SUPABASE_URL}/storage/v1/object/sign/curricula/${res.locals.userId}/`;
+        if (typeof fileUrl !== 'string' || !fileUrl.startsWith(allowedPrefix)) {
+          return res.status(400).json({ error: 'Invalid file link. Please upload the file again.' });
+        }
         const fileRes = await fetch(fileUrl);
         if (!fileRes.ok) {
           throw new Error('Failed to fetch file from URL');
@@ -271,7 +334,10 @@ async function startServer() {
   app.post('/api/generate-diagnostic', async (req, res) => {
     try {
       const { topics } = req.body;
-      
+      if (!Array.isArray(topics) || topics.length === 0 || topics.length > 40) {
+        return res.status(400).json({ error: 'Send between 1 and 40 topics.' });
+      }
+
       const prompt = `Generate a quick diagnostic quiz covering these topics:\n` +
         topics.map((t) => `- ${t.title}: ${t.description}`).join('\n') +
         `\n\nCreate exactly 1 or 2 multiple-choice questions for EACH topic. Return an array of objects, where each object has { topic_id, question_text, options (array of 4 strings), correct_answer }. The topic_id must match the id provided.`;
@@ -410,7 +476,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

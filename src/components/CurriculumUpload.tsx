@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { authFetch } from '../lib/api';
 import { Loader2, UploadCloud, FileText, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CurriculumResults } from './CurriculumResults';
@@ -117,7 +118,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
       // 3. Extract Topics via Backend
       setProgressMsg('AI is analyzing your curriculum (this might take a moment)...');
       
-      const extractRes = await fetch('/api/extract-topics', {
+      const extractRes = await authFetch('/api/extract-topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
@@ -175,7 +176,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
         setProgressMsg(`Generating materials for Topic ${completedTopics} of ${savedTopics.length}...`);
         
         try {
-          const matRes = await fetch('/api/generate-materials', {
+          const matRes = await authFetch('/api/generate-materials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

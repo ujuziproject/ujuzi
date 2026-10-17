@@ -1,6 +1,8 @@
 -- Run this in your Supabase SQL Editor to wipe all app data and users
 
 -- 1. Truncate all application tables
+-- NOTE: interests and interest_content are reference data (the interest list and
+-- library). They are deliberately NOT wiped here, so onboarding keeps working.
 TRUNCATE TABLE 
   activity_log,
   lecture_notes,
@@ -17,8 +19,6 @@ TRUNCATE TABLE
   learning_goals,
   curricula,
   student_interests,
-  interest_content,
-  interests,
   streaks,
   student_profiles
 CASCADE;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { authFetch } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { Loader2, Search } from 'lucide-react';
 
@@ -41,7 +42,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
 
   const generateMaterialsForTopic = async (topic: any) => {
     try {
-      const matRes = await fetch('/api/generate-materials', {
+      const matRes = await authFetch('/api/generate-materials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,7 +91,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
     try {
       if (bulk) {
         setProgressMsg('Identifying courses...');
-        const res = await fetch('/api/extract-courses', {
+        const res = await authFetch('/api/extract-courses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text })
@@ -128,7 +129,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
         
       } else {
         setProgressMsg('Extracting topics from course outline...');
-        const extractRes = await fetch('/api/extract-topics', {
+        const extractRes = await authFetch('/api/extract-topics', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: `Course: ${title}\n\n${text}` })
@@ -281,7 +282,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
                    setFindingSuccess('');
                    
                    try {
-                       const res = await fetch('/api/find-curriculum', {
+                       const res = await authFetch('/api/find-curriculum', {
                            method: 'POST',
                            headers: {'Content-Type': 'application/json'},
                            body: JSON.stringify({

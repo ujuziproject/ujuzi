@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { authFetch } from '../lib/api';
 import { Topic } from '../types';
 import { Loader2, Play, SkipForward, CheckCircle2 } from 'lucide-react';
 
@@ -36,7 +37,7 @@ export function DiagnosticFlow({ userId, topics, onComplete }: DiagnosticFlowPro
     setLoading(true);
     setProgressMsg('Generating diagnostic questions...');
     try {
-      const res = await fetch('/api/generate-diagnostic', {
+      const res = await authFetch('/api/generate-diagnostic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
