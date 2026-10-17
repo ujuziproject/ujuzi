@@ -3,12 +3,19 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+// Public Supabase project settings. The anon key is designed to be public (it ships
+// inside the browser app); data is protected by Row Level Security, not by hiding it.
+// Environment variables SUPABASE_URL / SUPABASE_ANON_KEY override these if set.
+// NEVER put the Gemini key or the Supabase service_role key in code.
+const DEFAULT_SUPABASE_URL = 'https://vfvugkpzxpxxffgbxndj.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmdnVna3B6eHB4eGZmZ2J4bmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwOTk0NTAsImV4cCI6MjEwMTY3NTQ1MH0.NNlhWPqUBtEmHP344ZzW-KEU6gdKWVLghFO52d-0TVo';
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY),
     },
     resolve: {
       alias: {
