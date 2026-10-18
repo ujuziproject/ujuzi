@@ -18,11 +18,21 @@ import { Step5LearningStyle } from './components/Step5LearningStyle';
 import { Step6Review } from './components/Step6Review';
 import { TryItPreview } from './components/TryItPreview';
 import { ResetPassword } from './components/ResetPassword';
+import { StepName } from './components/StepName';
 import { MainApp } from './components/MainApp';
 import { Track } from './types';
 import { cn } from './lib/utils';
 import { Loader2 } from 'lucide-react';
 import { STUDY_TIPS } from './lib/studyTips';
+
+// Public pages with their own web address (Google sign-in needs real links to
+// the Privacy Policy and Terms, e.g. https://ujuzi.pages.dev/privacy).
+const STATIC_PAGES = ['about', 'contact', 'terms', 'privacy'] as const;
+const pageFromPath = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const slug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  return (STATIC_PAGES as readonly string[]).includes(slug) ? slug : null;
+};
 
 export default function App() {
   const [step, setStep] = useState<number | string>(-1); // -1 = landing, 0 = login, 1 = signup
@@ -52,9 +62,38 @@ export default function App() {
         setLoadingSession(false);
       }
     });
-    checkSessionAndProfile();
-    return () => sub.subscription.unsubscribe();
+    // Opened directly at /privacy, /terms, /about or /contact: show that page
+    const direct = pageFromPath();
+    if (direct) {
+      setStep(direct);
+      setLoadingSession(false);
+    } else {
+      checkSessionAndProfile();
+    }
+    // Browser back/forward between public pages and the app
+    const onPop = () => {
+      const page = pageFromPath();
+      if (page) setStep(page);
+      else { setLoadingSession(true); checkSessionAndProfile(); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => { sub.subscription.unsubscribe(); window.removeEventListener('popstate', onPop); };
   }, []);
+
+  // Keep the address bar in sync: public pages get /privacy etc., everything else stays on /
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const wanted = typeof step === 'string' && (STATIC_PAGES as readonly string[]).includes(step) ? `/${step}` : '/';
+    if (window.location.pathname !== wanted) {
+      window.history.pushState(null, '', wanted + (wanted === '/' ? window.location.hash : ''));
+    }
+  }, [step]);
+
+  // Leaving a public page: go back into the app if signed in, otherwise the landing page
+  const leaveStaticPage = () => {
+    setLoadingSession(true);
+    checkSessionAndProfile();
+  };
 
   const checkSessionAndProfile = async () => {
     try {
@@ -95,6 +134,15 @@ export default function App() {
       }
       if (profile?.avatar_url) {
         setAvatarUrl(profile.avatar_url);
+      }
+
+      // No real name yet (e.g. signed up with an email link): ask once before anything else
+      const meta: any = session.user.user_metadata || {};
+      const emailPrefix = session.user.email?.split('@')[0] || '';
+      const hasRealName = !!(meta.full_name || meta.name) || (profile?.full_name && profile.full_name !== emailPrefix && profile.full_name !== 'Student');
+      if (!hasRealName) {
+        setStep('name');
+        return;
       }
 
       // Check student_profiles
@@ -228,10 +276,10 @@ export default function App() {
     );
   }
 
-  if (step === 'about') return <AboutPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
-  if (step === 'contact') return <ContactPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
-  if (step === 'terms') return <TermsPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
-  if (step === 'privacy') return <PrivacyPage onBack={() => setStep(-1)} onNavigate={(page) => setStep(page)} />;
+  if (step === 'about') return <AboutPage onBack={leaveStaticPage} onNavigate={(page) => setStep(page)} />;
+  if (step === 'contact') return <ContactPage onBack={leaveStaticPage} onNavigate={(page) => setStep(page)} />;
+  if (step === 'terms') return <TermsPage onBack={leaveStaticPage} onNavigate={(page) => setStep(page)} />;
+  if (step === 'privacy') return <PrivacyPage onBack={leaveStaticPage} onNavigate={(page) => setStep(page)} />;
 
   if (step === -1) {
     return <LandingPage onLogin={() => setStep(0)} onGetStarted={() => setStep(1)} onTryIt={() => setStep('try')} onNavigate={(page) => setStep(page)} />;
@@ -378,6 +426,13 @@ export default function App() {
                   className="w-full flex-1"
                 >
                   {step === 'try' && <TryItPreview onSignUpClick={() => setStep(1)} />}
+                  {step === 'name' && (
+                    <StepName userId={userId} onDone={(fullName) => {
+                      setName(fullName);
+                      setLoadingSession(true);
+                      checkSessionAndProfile();
+                    }} />
+                  )}
                   {step === 'reset' && (
                     <ResetPassword onDone={() => {
                       recovering.current = false;

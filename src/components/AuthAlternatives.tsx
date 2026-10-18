@@ -9,6 +9,7 @@ export function AuthAlternatives({ mode }: { mode: 'login' | 'signup' }) {
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [showEmailLink, setShowEmailLink] = useState(false);
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
@@ -35,12 +36,14 @@ export function AuthAlternatives({ mode }: { mode: 'login' | 'signup' }) {
 
   // Not a <form>: this component sits inside the login/sign-up forms, and nested forms break submission
   const sendLink = async () => {
+    if (mode === 'signup' && name.trim().length < 2) { setError('Tell us your name so we know what to call you.'); return; }
     if (!/^\S+@\S+\.\S+$/.test(email)) { setError('Enter a valid email address.'); return; }
     setSending(true);
     setError('');
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin, shouldCreateUser: true },
+      // The name is saved with new accounts; returning students keep their existing name
+      options: { emailRedirectTo: window.location.origin, shouldCreateUser: true, data: name.trim() ? { full_name: name.trim() } : undefined },
     });
     setSending(false);
     if (error) setError(friendlyAuthError(error, "We couldn't send the link. Please try again."));
@@ -87,10 +90,26 @@ export function AuthAlternatives({ mode }: { mode: 'login' | 'signup' }) {
           </div>
         ) : (
           <div className="p-4 rounded-2xl border border-border bg-surface-alt space-y-3">
+            {mode === 'signup' && (
+              <>
+                <label className="block text-sm font-medium text-gray-700">Your full name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                  placeholder="e.g. Chidi Okeke"
+                  autoComplete="name"
+                  className="block w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-accent focus:border-accent text-sm"
+                />
+              </>
+            )}
             <label className="block text-sm font-medium text-gray-700">Your email — no password needed</label>
             <input
               type="email"
-              autoFocus
+              autoFocus={mode !== 'signup'}
+              autoComplete="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendLink(); } }}

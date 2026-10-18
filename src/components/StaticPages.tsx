@@ -315,7 +315,7 @@ export const TermsPage = ({ onBack, onNavigate }: PageProps) => (
     <section className="section" style={{ paddingTop: '60px' }}>
       <div className="wrap">
         <div className="legal-meta">
-          <span>Last updated: August 2026</span>
+          <span>Last updated: October 2026</span>
           <span>Governing law: Federal Republic of Nigeria</span>
         </div>
 
@@ -475,7 +475,7 @@ export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
     <section className="section" style={{ paddingTop: '60px' }}>
       <div className="wrap">
         <div className="legal-meta">
-          <span>Last updated: August 2026</span>
+          <span>Last updated: October 2026</span>
           <span>Regulator: Nigeria Data Protection Commission (NDPC)</span>
         </div>
 
@@ -506,6 +506,7 @@ export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
           <h3>Account information</h3>
           <ul>
             <li>Name, email address, and login credentials</li>
+            <li>If you sign in with Google: your name, email address and profile picture from your Google account. We don't ask for, and can't see, your Gmail, contacts, Google Drive or any other Google data.</li>
           </ul>
           <h3>Academic profile</h3>
           <ul>
@@ -540,7 +541,9 @@ export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
           <p>We do not sell your personal data, and we do not use your curriculum uploads or study data to advertise to you or to third parties.</p>
 
           <h2 id="ai-processing">4. AI processing & sub-processors</h2>
-          <p>To generate your study materials, your curriculum content and related prompts are sent to our AI provider (Google's Gemini API) for processing. Your account and study data are stored using Supabase, our database and infrastructure provider. Both are engaged as data processors acting on our instructions — they don't independently use your data for their own purposes.</p>
+          <p>To generate your study materials, your curriculum content and related prompts are sent to our AI provider (Google's Gemini API) for processing. Your account and study data are stored using Supabase, our database and infrastructure provider. The website runs on Cloudflare, and account emails (such as sign-in links, password resets and study reminders) are delivered by our email provider, Brevo. All of these are engaged as data processors acting on our instructions — they don't independently use your data for their own purposes.</p>
+          <h3>Signing in with Google</h3>
+          <p>If you choose “Continue with Google”, we use the name, email address and profile picture Google shares with us only to create your uJuzi account, sign you in and show your name and picture in the app. We don't use this information for advertising, we don't sell it, and we only share it with the service providers listed above to run uJuzi. uJuzi's use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. You can remove uJuzi's access at any time from your Google Account's security settings, and you can delete your uJuzi account from Settings.</p>
 
           <h2 id="children">5. If you're under 18</h2>
           <div className="legal-callout">
@@ -551,7 +554,7 @@ export const PrivacyPage = ({ onBack, onNavigate }: PageProps) => (
           <h2 id="sharing">6. When we share data</h2>
           <p>We share personal data only with:</p>
           <ul>
-            <li>The service providers described above (Gemini, Supabase), strictly to operate uJuzi</li>
+            <li>The service providers described above (Google Gemini, Supabase, Cloudflare, Brevo), strictly to operate uJuzi</li>
             <li>A linked parent or teacher account, only where you've opted into that visibility</li>
             <li>Law enforcement or regulators, only where required by Nigerian law</li>
             <li>A successor entity, if uJuzi is ever acquired or merged — with notice to you first</li>
