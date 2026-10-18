@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendAppEmail } from '../lib/email';
 import { authFetch, apiError } from '../lib/api';
 import { Loader2, UploadCloud, FileText, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -210,6 +211,7 @@ export function CurriculumUpload({ userId, onUploadComplete }: CurriculumUploadP
       }
 
       // Success: GenerationRunner shows "ready" and waits for the student to continue
+      sendAppEmail('study_pack_ready', { courseTitle: title, topicCount: toGenerate.length });
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
       setStatus('idle');

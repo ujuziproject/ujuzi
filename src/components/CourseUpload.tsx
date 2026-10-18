@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendAppEmail } from '../lib/email';
 import { authFetch, apiError } from '../lib/api';
 import { DiagnosticFlow } from './DiagnosticFlow';
 import { GenerationIssues } from './GenerationIssues';
@@ -186,6 +187,7 @@ export function CourseUpload({ userId, semesterId, goalId, bulk, onUploadComplet
       return;
     }
     // Success: GenerationRunner shows "ready" and waits for the student to continue
+    sendAppEmail('study_pack_ready', { courseTitle: bulk ? 'your semester courses' : title, topicCount: toGenerate.length });
   };
 
   const handleContinueAfterGeneration = () => {

@@ -5,8 +5,10 @@ export const USER_CALLS_PER_HOUR = 300;     // one full semester upload is ~100 
 export const PUBLIC_CALLS_PER_IP_HOUR = 5;  // "Try it" preview, per visitor
 export const PUBLIC_CALLS_TOTAL_HOUR = 300; // "Try it" preview, all visitors combined (caps the Gemini bill)
 
-// Checks a Supabase access token and returns the user's id, or null if it is invalid/expired.
-export async function getUserId(env: Env, accessToken: string): Promise<string | null> {
+export interface SignedInUser { id: string; email: string; name: string }
+
+// Checks a Supabase access token and returns the user, or null if it is invalid/expired.
+export async function getUser(env: Env, accessToken: string): Promise<SignedInUser | null> {
   const { url, anonKey } = supabaseConfig(env);
   if (!url || !anonKey) throw Object.assign(new Error('SUPABASE_URL / SUPABASE_ANON_KEY not set'), { publicMessage: 'The server is not configured yet.' });
   const res = await fetch(`${url}/auth/v1/user`, {
@@ -14,7 +16,9 @@ export async function getUserId(env: Env, accessToken: string): Promise<string |
   });
   if (!res.ok) return null;
   const user: any = await res.json().catch(() => null);
-  return user?.id || null;
+  if (!user?.id) return null;
+  const meta = user.user_metadata || {};
+  return { id: user.id, email: user.email || '', name: (meta.full_name || meta.name || '').toString() };
 }
 
 // Counts one AI call for the logged-in student this hour and returns the running total.

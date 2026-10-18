@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirm your new email address</title></head>
+<body style="margin:0;padding:0;background:#F4F3FB;font-family:'DM Sans',Arial,Helvetica,sans-serif;color:#110B29;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0">Confirm your new uJuzi email address.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F3FB;padding:24px 12px;">
+<tr><td align="center">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+    <tr><td style="padding:8px 4px 16px;font-size:22px;font-weight:800;color:#110B29;">uJuzi</td></tr>
+    <tr><td style="background:#ffffff;border-radius:20px;padding:32px 28px;border:1px solid #ECEAF7;">
+      <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;color:#110B29;">Confirm your new email address</h1>
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#3C3852;">Tap below to confirm this as the new email address for your uJuzi account.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="border-radius:999px;background:#6C5CE7;">
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;border-radius:999px;">Confirm new email</a>
+      </td></tr></table>
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#6B6880;">If you didn't ask to change your email, please contact us right away.</p>
+      <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#8A879C;">Button not working? Copy and paste this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#6C5CE7;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+    </td></tr>
+    <tr><td style="padding:18px 6px;font-size:12px;line-height:1.6;color:#6B6880;">
+      This email was sent to {{ .Email }} because someone used it on uJuzi. If that wasn't you, you can safely ignore it.<br>
+      <a href="{{ .SiteURL }}/privacy" style="color:#6B6880;">Privacy Policy</a>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>

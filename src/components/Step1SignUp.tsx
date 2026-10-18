@@ -4,7 +4,8 @@ import { friendlyAuthError } from '../lib/errors';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { loadTryItPlan } from '../lib/tryItPlan';
-import { AuthAlternatives } from './AuthAlternatives';
+import { EmailLinkForm } from './EmailLinkForm';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
 interface Step1Props {
  onNext: (userId: string, name: string) => void;
@@ -13,6 +14,7 @@ interface Step1Props {
 
 export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  const [plan] = useState(() => loadTryItPlan());
+ const [usePassword, setUsePassword] = useState(false);
  const [fullName, setFullName] = useState('');
  const [email, setEmail] = useState('');
  const [password, setPassword] = useState('');
@@ -75,7 +77,7 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  <div className="w-full max-w-md mx-auto text-center">
  <div className="text-5xl mb-4" aria-hidden="true">📬</div>
  <h1 className="text-3xl font-black text-ink mb-2 font-display">Check your email</h1>
- <p className="text-slate-500 mb-6">We sent a confirmation link to <strong className="text-ink">{email}</strong>. Open it on this device to finish creating your account{plan ? ' and save your plan' : ''}.</p>
+ <p className="text-slate-500 mb-6">We sent a confirmation link to <strong className="text-ink">{email}</strong>. Open it to finish creating your account{plan ? ' and save your plan' : ''}.</p>
  <button type="button" onClick={onLoginClick} className="text-sm font-semibold text-accent">Already confirmed? Log in</button>
  </div>
  );
@@ -96,7 +98,28 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  </div>
  )}
 
- <form onSubmit={handleSubmit} className="space-y-4">
+ {!usePassword ? (
+ <>
+ <EmailLinkForm mode="signup" />
+ <div className="flex items-center gap-3 my-6">
+ <div className="h-px flex-1 bg-border" />
+ <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">or</span>
+ <div className="h-px flex-1 bg-border" />
+ </div>
+ <div className="space-y-3">
+ <GoogleSignInButton label="Sign up with Google" />
+ <button type="button" onClick={() => setUsePassword(true)} className="w-full py-3 px-4 rounded-full border border-border bg-white text-ink font-semibold text-[15px] hover:bg-slate-50 transition-colors">
+ Sign up with a password instead
+ </button>
+ </div>
+ <div className="mt-6 text-center text-sm text-slate-500">
+ Already have an account?{' '}
+ <button type="button" onClick={onLoginClick} className="font-medium text-accent">Log in</button>
+ </div>
+ </>
+ ) : (
+ <>
+  <form onSubmit={handleSubmit} className="space-y-4">
  {error && (
  <div className="p-3 text-sm text-red-600 bg-red-50 rounded-xl border border-red-100">
  {error}
@@ -185,7 +208,7 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  )}
  </button>
 
- <AuthAlternatives mode="signup" />
+ 
 
  <div className="mt-6 text-center text-sm text-slate-500">
  Already have an account?{' '}
@@ -198,6 +221,11 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  </button>
  </div>
  </form>
+ <button type="button" onClick={() => setUsePassword(false)} className="w-full mt-4 text-sm font-semibold text-accent">
+ ← Use an email link instead (recommended)
+ </button>
+ </>
+ )}
  </div>
  );
 }

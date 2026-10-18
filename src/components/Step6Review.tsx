@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendAppEmail } from '../lib/email';
 import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Track } from '../types';
 import { learnerType } from '../lib/learnerType';
@@ -125,6 +126,7 @@ export function Step6Review({ userId, onNext }: Step6Props) {
  
  if (error) throw error;
  
+ sendAppEmail('welcome', { track: profile?.track });
  onNext();
  } catch (err: any) {
  console.error(err);

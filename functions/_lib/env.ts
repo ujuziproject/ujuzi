@@ -9,11 +9,18 @@ export interface Env {
   VITE_SUPABASE_ANON_KEY?: string;   // accepted as a fallback name
   GEMINI_MODEL?: string;             // optional override, defaults to gemini-3.6-flash
   GEMINI_API_BASE?: string;          // optional override, only used for local testing
+  BREVO_API_KEY?: string;            // secret — enables emails sent by uJuzi (welcome, study pack ready)
+  EMAIL_FROM?: string;               // sender address on your verified Brevo domain, e.g. hello@ujuzi.ng
+  EMAIL_FROM_NAME?: string;          // optional, defaults to "uJuzi"
+  APP_URL?: string;                  // optional, link used in emails, defaults to https://ujuzi.pages.dev
+  BREVO_API_BASE?: string;           // optional override, only used for local testing
 }
 
 // Values the auth middleware passes on to each route.
 export interface Data extends Record<string, unknown> {
   userId?: string;
+  userEmail?: string;
+  userName?: string;
   accessToken?: string;
 }
 

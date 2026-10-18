@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { friendlyAuthError } from '../lib/errors';
 import { Mail, Lock, Loader2 } from 'lucide-react';
 import { recordActivity } from '../lib/activity';
-import { AuthAlternatives } from './AuthAlternatives';
+import { EmailLinkForm } from './EmailLinkForm';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
 interface Step0Props {
  onNext: (userId: string, name: string) => void;
@@ -17,6 +18,7 @@ export function Step0Login({ onNext, onSignUpClick }: Step0Props) {
  const [error, setError] = useState('');
  const [resetMode, setResetMode] = useState(false);
  const [resetSent, setResetSent] = useState(false);
+ const [usePassword, setUsePassword] = useState(false);
 
  const sendReset = async (e: React.FormEvent) => {
  e.preventDefault();
@@ -37,7 +39,7 @@ export function Step0Login({ onNext, onSignUpClick }: Step0Props) {
  </div>
  {resetSent ? (
  <div className="p-4 rounded-2xl bg-[#E2F7EB] text-[14px] text-ink mb-6" role="status">
- <strong>Check your inbox.</strong> If an account exists for {email}, a reset link is on its way. Open it on this device.
+ <strong>Check your inbox.</strong> If an account exists for {email}, a reset link is on its way. It can take a minute — check Spam too.
  </div>
  ) : (
  <form onSubmit={sendReset} className="space-y-4">
@@ -101,7 +103,28 @@ export function Step0Login({ onNext, onSignUpClick }: Step0Props) {
  <p className="text-slate-500">Log in to your uJuzi student account.</p>
  </div>
 
- <form onSubmit={handleSubmit} className="space-y-4">
+ {!usePassword ? (
+ <>
+ <EmailLinkForm mode="login" />
+ <div className="flex items-center gap-3 my-6">
+ <div className="h-px flex-1 bg-border" />
+ <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">or</span>
+ <div className="h-px flex-1 bg-border" />
+ </div>
+ <div className="space-y-3">
+ <GoogleSignInButton label="Continue with Google" />
+ <button type="button" onClick={() => setUsePassword(true)} className="w-full py-3 px-4 rounded-full border border-border bg-white text-ink font-semibold text-[15px] hover:bg-slate-50 transition-colors">
+ Log in with a password
+ </button>
+ </div>
+ <div className="mt-6 text-center text-sm text-slate-500">
+ New to uJuzi?{' '}
+ <button type="button" onClick={onSignUpClick} className="font-medium text-accent">Create a free account</button>
+ </div>
+ </>
+ ) : (
+ <>
+  <form onSubmit={handleSubmit} className="space-y-4">
  {error && (
  <div className="p-3 text-sm text-red-600 bg-red-50 rounded-xl border border-red-100">
  {error}
@@ -157,7 +180,7 @@ export function Step0Login({ onNext, onSignUpClick }: Step0Props) {
  )}
  </button>
 
- <AuthAlternatives mode="login" />
+ 
 
  <div className="mt-6 text-center text-sm text-slate-500">
  Don't have an account?{' '}
@@ -170,6 +193,11 @@ export function Step0Login({ onNext, onSignUpClick }: Step0Props) {
  </button>
  </div>
  </form>
+ <button type="button" onClick={() => setUsePassword(false)} className="w-full mt-4 text-sm font-semibold text-accent">
+ ← Get an email link instead
+ </button>
+ </>
+ )}
  </div>
  );
 }
