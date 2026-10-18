@@ -23,9 +23,9 @@
   --on-ink-trans-25: rgba(255,255,255,0.25);
   --on-ink-trans-50: rgba(255,255,255,0.5);
   --on-ink-trans-85: rgba(255,255,255,0.85);
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --nav-bg: rgba(255,255,255,0.96);
   --on-ink-trans-5: var(--on-ink-trans-5);
   --on-ink-trans-6: var(--on-ink-trans-6);

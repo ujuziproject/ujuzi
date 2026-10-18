@@ -10,6 +10,7 @@ import { GoalDetail } from './GoalDetail';
 import { useNavigationStore } from './MainApp';
 import { localDateStr, parseLocalDate, addDays, daysUntil, startOfWeekLocal } from '../lib/dates';
 import { loadTryItPlan } from '../lib/tryItPlan';
+import { openTopic } from '../lib/navigation';
 
 interface DashboardProps {
   name: string;
@@ -42,7 +43,7 @@ function ChecklistItem({ title, subText, complete, actionText, onAction, icon: I
 }
 
 function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
-  const { setCurrentView, setDashboardView } = useNavigationStore();
+  const { setCurrentView, setDashboardView, setDashboardCourseId, setDashboardCurriculumId, setDashboardTopicId } = useNavigationStore();
   
   const [streak, setStreak] = useState(0);
   const [isAdjusting, setIsAdjusting] = useState(false);
@@ -56,6 +57,9 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
   
   const [weeklyGoal, setWeeklyGoal] = useState(300);
   const [pendingPlan] = useState(() => loadTryItPlan());
+  const [loaded, setLoaded] = useState(false);
+  const [continueTopic, setContinueTopic] = useState<{ id: string; title: string; course_id: string | null; curriculum_id: string | null } | null>(null);
+  const [todayItems, setTodayItems] = useState<any[]>([]);
   const [setupTasks, setSetupTasks] = useState({
     profile: false,
     interests: false,
@@ -137,6 +141,28 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
       }
       setDaysLeft(target ? daysUntil(target) : null);
       setTopicsLeft(plannerRes.count || 0);
+
+      // For returning students: today's plan and where to pick up
+      const [todayRes, lastRes] = await Promise.all([
+        supabase.from('planner_items').select('id, title, item_type, topic_id, completed').eq('student_id', userId).eq('scheduled_date', localDateStr()).order('created_at'),
+        supabase.from('study_sessions').select('topic_id').eq('student_id', userId).order('started_at', { ascending: false }).limit(1),
+      ]);
+      if (cancelled) return;
+      const items = todayRes.data || [];
+      setTodayItems(items);
+      const pickTopicId = lastRes.data?.[0]?.topic_id || items.find(i => !i.completed && i.topic_id)?.topic_id;
+      let topic: any = null;
+      if (pickTopicId) {
+        const { data } = await supabase.from('topics').select('id, title, course_id, curriculum_id').eq('id', pickTopicId).maybeSingle();
+        topic = data;
+      }
+      if (!topic) {
+        const { data } = await supabase.from('topics').select('id, title, course_id, curriculum_id').order('created_at', { ascending: false }).limit(1);
+        topic = data?.[0] || null;
+      }
+      if (cancelled) return;
+      setContinueTopic(topic);
+      setLoaded(true);
     }
 
     loadDashboard();
@@ -149,6 +175,20 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
   
   const setupTasksCount = Object.values(setupTasks).filter(Boolean).length + 1; // +1 for account
   const setupProgressPercent = Math.round((setupTasksCount / 6) * 100);
+  // Once a student has a course with materials, the Overview switches from setup to daily study
+  const returning = loaded && setupTasks.course && setupTasks.materials;
+
+  const toggleTodayItem = async (item: any) => {
+    const completed = !item.completed;
+    setTodayItems(prev => prev.map(i => i.id === item.id ? { ...i, completed } : i));
+    await supabase.from('planner_items').update({ completed, completed_at: completed ? new Date().toISOString() : null }).eq('id', item.id);
+  };
+  const openTodayItem = async (item: any) => {
+    if (!item.topic_id) { setCurrentView('planner'); return; }
+    const { data } = await supabase.from('topics').select('id, course_id, curriculum_id').eq('id', item.topic_id).maybeSingle();
+    if (data) openTopic({ setCurrentView, setDashboardView, setDashboardCourseId, setDashboardCurriculumId, setDashboardTopicId }, data);
+  };
+  const todayDone = todayItems.filter(i => i.completed).length;
 
   return (
     <div className="w-full animate-in fade-in duration-500">
@@ -163,8 +203,93 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
           </button>
         </div>
       )}
+      {returning && (
+        <>
+          {/* Returning student: pick up where you left off */}
+          <div className="bg-gradient-to-br from-[#271E42] via-[#2D1F5B] to-[#43236C] rounded-[32px] p-7 md:p-12 mb-8 relative overflow-hidden text-white shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-8">
+            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#E8A55B]/10 blur-[80px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+            <div className="relative z-10 max-w-[560px]">
+              <h1 className="text-3xl md:text-[46px] font-extrabold tracking-tight mb-3 text-white leading-[1.1] font-display">
+                Welcome back,{' '}
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#F5A623] to-[#FF8C9D]">{firstName}.</span>
+              </h1>
+              <p className="text-white/70 text-[15px] md:text-[16px] mb-7 leading-relaxed">
+                {daysLeft !== null && daysLeft > 0
+                  ? `${daysLeft} days to your target date · ${topicsLeft} ${topicsLeft === 1 ? 'topic' : 'topics'} still to cover.`
+                  : todayItems.length > 0
+                    ? `${todayDone} of ${todayItems.length} tasks done today.`
+                    : 'Pick up where you left off.'}
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                {continueTopic && (
+                  <button
+                    onClick={() => openTopic({ setCurrentView, setDashboardView, setDashboardCourseId, setDashboardCurriculumId, setDashboardTopicId }, continueTopic)}
+                    className="bg-[#6C5CE7] text-white px-6 py-3.5 rounded-full font-bold text-[14px] flex items-center gap-2 hover:bg-[#5B4FE8] transition-colors shadow-sm max-w-full"
+                  >
+                    <span className="truncate">Continue: {continueTopic.title}</span> <ArrowRight className="w-4 h-4 shrink-0" />
+                  </button>
+                )}
+                <button onClick={() => setDashboardView('upload')} className="bg-white/5 text-white border-2 border-white/20 px-6 py-3 rounded-full font-bold text-[14px] hover:bg-white/10 transition-colors">
+                  Add a course
+                </button>
+              </div>
+            </div>
+            <div className="relative z-10 hidden md:flex items-center justify-center">
+              <div className="w-44 h-44 rounded-[36px] bg-white/5 border border-white/10 flex flex-col items-center justify-center relative">
+                <svg className="w-[120px] h-[120px] -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="#F5A623" strokeWidth="3" strokeDasharray="97.39" strokeDashoffset={97.39 - (weeklyPercent / 100) * 97.39} strokeLinecap="round" />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[28px] font-extrabold text-white">{weeklyPercent}%</span>
+                  <span className="text-[10px] font-bold tracking-[0.15em] text-white/50 uppercase">Weekly goal</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's plan */}
+          <div className="bg-white rounded-[28px] p-6 md:p-8 mb-8 shadow-sm border border-slate-100">
+            <div className="flex justify-between items-end mb-5 gap-4">
+              <div>
+                <h3 className="font-display font-extrabold text-[22px] text-[#110B29] tracking-tight">Today's plan</h3>
+                <p className="text-slate-500 text-[14px] mt-1 font-medium">
+                  {todayItems.length === 0 ? 'Nothing scheduled for today.' : todayDone === todayItems.length ? 'All done for today. Great work!' : `${todayItems.length - todayDone} left to do.`}
+                </p>
+              </div>
+              <button onClick={() => setCurrentView('planner')} className="text-[13px] font-bold text-accent hover:underline shrink-0">Open Planner →</button>
+            </div>
+            {todayItems.length > 0 ? (
+              <div className="flex flex-col gap-2.5">
+                {todayItems.map(item => (
+                  <div key={item.id} className={`flex items-center gap-3 p-3.5 rounded-2xl border ${item.completed ? 'bg-[#E2F7EB] border-transparent' : 'bg-white border-slate-100'}`}>
+                    <button
+                      onClick={() => toggleTodayItem(item)}
+                      aria-label={item.completed ? 'Mark as not done' : 'Mark as done'}
+                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 ${item.completed ? 'bg-[#34A853] border-[#34A853] text-white' : 'border-slate-300 hover:border-accent'}`}
+                    >
+                      {item.completed && <CheckCircle2 className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => openTodayItem(item)} className={`flex-1 min-w-0 text-left font-semibold text-[14.5px] truncate hover:text-accent ${item.completed ? 'line-through text-slate-500' : 'text-[#110B29]'}`}>
+                      {item.title}
+                    </button>
+                    <span className="text-[11px] font-bold uppercase text-accent bg-accent/10 px-2 py-0.5 rounded-full shrink-0">{item.item_type}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-[14px] text-slate-500">
+                {continueTopic ? <>A good time to review <strong className="text-ink">{continueTopic.title}</strong> — or open the Planner to build your schedule.</> : 'Open the Planner to build your schedule.'}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {loaded && !returning && (
+        <>
       {/* Hero section */}
-      <div className="bg-gradient-to-br from-[#271E42] via-[#2D1F5B] to-[#43236C] rounded-[32px] p-10 md:p-14 mb-10 relative overflow-hidden text-white shadow-sm flex flex-col md:flex-row justify-between items-center gap-8">
+      <div className="bg-gradient-to-br from-[#271E42] via-[#2D1F5B] to-[#43236C] rounded-[32px] p-7 md:p-14 mb-10 relative overflow-hidden text-white shadow-sm flex flex-col md:flex-row justify-between items-center gap-8">
          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#E8A55B]/10 blur-[80px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
          
@@ -263,6 +388,9 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
          </div>
       </div>
 
+        </>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
         <div className="bg-[#FFF6D9] rounded-[28px] p-7 flex flex-col shadow-sm">
@@ -302,7 +430,7 @@ function DashboardHome({ name, userId, track, onNavigate }: DashboardProps) {
         </div>
       </div>
       
-      {setupProgressPercent < 100 && (
+      {loaded && !returning && setupProgressPercent < 100 && (
       <>
       {/* What unlocks next */}
       <div className="bg-white rounded-[32px] p-8 md:p-10 shadow-sm border border-slate-100 mb-10">

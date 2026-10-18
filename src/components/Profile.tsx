@@ -4,6 +4,7 @@ import { Loader2, Save, Upload } from 'lucide-react';
 import { Track } from '../types';
 import { Step5LearningStyle } from './Step5LearningStyle';
 import { UniversityDropdown } from './UniversityDropdown';
+import { DeleteAccount } from './DeleteAccount';
 
 function Step5LearningStyleWrapper({userId, onComplete}: {userId: string, onComplete: () => void}) {
   return <Step5LearningStyle userId={userId} onNext={onComplete} />;
@@ -288,6 +289,7 @@ export function Profile({ userId }: { userId: string }) {
           </button>
         </div>
       </div>
+      <DeleteAccount userId={userId} />
     </div>
   );
 }

@@ -3,8 +3,11 @@ import { supabase } from '../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, Clock, BookOpen, CheckCircle2, Circle, Plus, ListTodo } from 'lucide-react';
 import { PlannerItem } from '../types';
 import { localDateStr, parseLocalDate, daysUntil, weeksFromToday } from '../lib/dates';
+import { useNavigationStore } from './MainApp';
+import { openTopic } from '../lib/navigation';
 
 export function Planner({ userId }: { userId: string }) {
+  const nav = useNavigationStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [items, setItems] = useState<PlannerItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,14 +92,14 @@ export function Planner({ userId }: { userId: string }) {
       start.setDate(start.getDate() - day);
     } else {
       start.setDate(1);
+      start.setDate(1 - start.getDay());
     }
     
     const end = new Date(start);
     if (view === 'week') {
       end.setDate(start.getDate() + 6);
     } else {
-      end.setMonth(start.getMonth() + 1);
-      end.setDate(0);
+      end.setDate(start.getDate() + 41);
     }
     
     const startStr = localDateStr(start);
@@ -127,6 +130,21 @@ export function Planner({ userId }: { userId: string }) {
       setItems(items.map(i => i.id === item.id ? { ...i, completed: newVal } : i));
     }
   };
+
+  // Clicking a task opens the topic it belongs to (hand-added tasks have no topic)
+  const openItem = async (item: PlannerItem) => {
+    if (!item.topic_id) return;
+    const { data: topic } = await supabase.from('topics').select('id, course_id, curriculum_id').eq('id', item.topic_id).maybeSingle();
+    if (topic) openTopic(nav, topic);
+  };
+
+  // Month grid: weeks starting Sunday, padded with days from the neighbouring months
+  const monthDays = (() => {
+    const first = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    return Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  })();
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,6 +312,38 @@ export function Planner({ userId }: { userId: string }) {
            </div>
         </div>
 
+        {view === 'month' && (
+          <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+            {dayNames.map(n => (
+              <div key={n} className="text-center font-bold text-[11px] text-slate-400 uppercase tracking-wider pb-1">{n}</div>
+            ))}
+            {monthDays.map((d, i) => {
+              const inMonth = d.getMonth() === currentDate.getMonth();
+              const dayItems = items.filter(item => item.scheduled_date === localDateStr(d));
+              const doneCount = dayItems.filter(it => it.completed).length;
+              const active = isToday(d);
+              const selected = localDateStr(d) === localDateStr(currentDate);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setCurrentDate(d)}
+                  className={`min-h-[64px] md:min-h-[88px] p-1.5 md:p-2 border rounded-xl text-left transition-colors ${selected ? 'border-accent bg-accent/5' : active ? 'border-accent/50' : 'border-slate-100 hover:border-slate-200'} ${inMonth ? '' : 'opacity-40'}`}
+                >
+                  <div className={`text-[13px] font-bold ${active ? 'text-accent' : 'text-ink/70'}`}>{d.getDate()}</div>
+                  {dayItems.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${doneCount === dayItems.length ? 'bg-[#E2F7EB] text-[#2E7D32]' : 'bg-accent/10 text-accent'}`}>
+                        {doneCount}/{dayItems.length}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {view === 'week' && (
           <div className="grid grid-cols-7 gap-2 mb-4">
             {weekDays.map((d, i) => (
@@ -311,7 +361,12 @@ export function Planner({ userId }: { userId: string }) {
                   <div className={`text-[15px] font-bold text-center mb-3 ${active ? 'text-accent' : 'text-ink/60'}`}>{d.getDate()}</div>
                   <div className="flex flex-col gap-1.5">
                     {dayItems.map(item => (
-                      <div key={item.id} className={`text-[11px] font-semibold px-2 py-1.5 rounded-md truncate ${item.completed ? 'bg-[#E2F7EB] text-[#2E7D32] line-through' : 'bg-white border border-slate-100 text-ink shadow-sm'}`}>
+                      <div
+                        key={item.id}
+                        onClick={(e) => { if (item.topic_id) { e.stopPropagation(); openItem(item); } }}
+                        title={item.topic_id ? 'Open this topic' : item.title}
+                        className={`text-[11px] font-semibold px-2 py-1.5 rounded-md truncate ${item.topic_id ? 'cursor-pointer hover:border-accent' : ''} ${item.completed ? 'bg-[#E2F7EB] text-[#2E7D32] line-through' : 'bg-white border border-slate-100 text-ink shadow-sm'}`}
+                      >
                         {item.title}
                       </div>
                     ))}
@@ -352,7 +407,11 @@ export function Planner({ userId }: { userId: string }) {
                       {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
                     </button>
                     <div>
-                      <h4 className={`font-bold text-[15px] ${item.completed ? 'line-through text-slate-500' : 'text-ink'}`}>{item.title}</h4>
+                      {item.topic_id ? (
+                        <button type="button" onClick={() => openItem(item)} className={`font-bold text-[15px] text-left hover:text-accent hover:underline underline-offset-4 ${item.completed ? 'line-through text-slate-500' : 'text-ink'}`}>{item.title}</button>
+                      ) : (
+                        <h4 className={`font-bold text-[15px] ${item.completed ? 'line-through text-slate-500' : 'text-ink'}`}>{item.title}</h4>
+                      )}
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[12px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full capitalize">{item.item_type}</span>
                         {item.scheduled_time && <span className="text-[12px] text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {item.scheduled_time}</span>}

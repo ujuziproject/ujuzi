@@ -17,6 +17,7 @@ import { Step4Interests } from './components/Step4Interests';
 import { Step5LearningStyle } from './components/Step5LearningStyle';
 import { Step6Review } from './components/Step6Review';
 import { TryItPreview } from './components/TryItPreview';
+import { ResetPassword } from './components/ResetPassword';
 import { MainApp } from './components/MainApp';
 import { Track } from './types';
 import { cn } from './lib/utils';
@@ -37,8 +38,22 @@ export default function App() {
     setTimeout(() => { setCelebration(null); then(); }, 1400);
   };
 
+  // Opening a "reset your password" email link signs the student in with a
+  // recovery session; show the new-password screen instead of the app.
+  const recovering = React.useRef(
+    typeof window !== 'undefined' && /type=recovery/.test(window.location.hash + window.location.search)
+  );
+
   useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        recovering.current = true;
+        setStep('reset');
+        setLoadingSession(false);
+      }
+    });
     checkSessionAndProfile();
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const checkSessionAndProfile = async () => {
@@ -54,12 +69,26 @@ export default function App() {
       const id = session.user.id;
       setUserId(id);
 
+      if (recovering.current) {
+        setStep('reset');
+        return;
+      }
+
       // Fetch name from profiles
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
         .eq('id', id)
-        .single();
+        .maybeSingle();
+
+      // Google, email-link and email-confirmed sign-ups arrive without a profile row: create it
+      if (!profile) {
+        const meta: any = session.user.user_metadata || {};
+        const fullName = (meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Student').toString().slice(0, 100);
+        const { error: insertError } = await supabase.from('profiles').insert({ id, full_name: fullName, role: 'student', avatar_url: meta.avatar_url || meta.picture || null });
+        if (insertError) console.error('Could not create profile', insertError);
+        profile = { full_name: fullName, avatar_url: meta.avatar_url || meta.picture || null };
+      }
         
       if (profile?.full_name) {
         setName(profile.full_name);
@@ -349,6 +378,14 @@ export default function App() {
                   className="w-full flex-1"
                 >
                   {step === 'try' && <TryItPreview onSignUpClick={() => setStep(1)} />}
+                  {step === 'reset' && (
+                    <ResetPassword onDone={() => {
+                      recovering.current = false;
+                      if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+                      setLoadingSession(true);
+                      checkSessionAndProfile();
+                    }} />
+                  )}
                   {step === 0 && <Step0Login onNext={handleLoginComplete} onSignUpClick={() => setStep(1)} />}
                   {step === 1 && <Step1SignUp onNext={handleSignUpComplete} onLoginClick={() => setStep(0)} />}
                   {step === 2 && <Step2Track onNext={handleTrackSelect} />}

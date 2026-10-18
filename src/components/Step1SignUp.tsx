@@ -4,6 +4,7 @@ import { friendlyAuthError } from '../lib/errors';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { loadTryItPlan } from '../lib/tryItPlan';
+import { AuthAlternatives } from './AuthAlternatives';
 
 interface Step1Props {
  onNext: (userId: string, name: string) => void;
@@ -15,11 +16,17 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  const [fullName, setFullName] = useState('');
  const [email, setEmail] = useState('');
  const [password, setPassword] = useState('');
+ const [confirmPassword, setConfirmPassword] = useState('');
+ const [checkEmail, setCheckEmail] = useState(false);
  const [loading, setLoading] = useState(false);
  const [error, setError] = useState('');
 
  const handleSubmit = async (e: React.FormEvent) => {
  e.preventDefault();
+ if (password !== confirmPassword) {
+ setError("The two passwords don't match.");
+ return;
+ }
  setLoading(true);
  setError('');
 
@@ -27,12 +34,20 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  const { data, error: signUpError } = await supabase.auth.signUp({
  email,
  password,
+ // Keep the name with the account so the profile can be created after email confirmation
+ options: { data: { full_name: fullName }, emailRedirectTo: window.location.origin },
  });
 
  if (signUpError) throw signUpError;
  
  const user = data.user;
  if (!user) throw new Error('User creation failed');
+
+ // With email confirmation on, there is no session until they click the link
+ if (!data.session) {
+ setCheckEmail(true);
+ return;
+ }
 
  // Create profile row
  const { error: profileError } = await supabase
@@ -54,6 +69,17 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  setLoading(false);
  }
  };
+
+ if (checkEmail) {
+ return (
+ <div className="w-full max-w-md mx-auto text-center">
+ <div className="text-5xl mb-4" aria-hidden="true">📬</div>
+ <h1 className="text-3xl font-black text-ink mb-2 font-display">Check your email</h1>
+ <p className="text-slate-500 mb-6">We sent a confirmation link to <strong className="text-ink">{email}</strong>. Open it on this device to finish creating your account{plan ? ' and save your plan' : ''}.</p>
+ <button type="button" onClick={onLoginClick} className="text-sm font-semibold text-accent">Already confirmed? Log in</button>
+ </div>
+ );
+ }
 
  return (
  <div className="w-full max-w-md mx-auto ">
@@ -128,6 +154,24 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  />
  </div>
  </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+ <div className="relative">
+ <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+ <Lock className="h-5 w-5 text-slate-400" />
+ </div>
+ <input
+ type="password"
+ required
+ minLength={6}
+ value={confirmPassword}
+ onChange={(e) => setConfirmPassword(e.target.value)}
+ className={cn("block w-full pl-10 pr-3 py-3 border rounded-xl focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-colors", confirmPassword && confirmPassword !== password ? 'border-red-300' : 'border-border')}
+ placeholder="Type it again"
+ />
+ </div>
+ {confirmPassword && confirmPassword !== password && <p className="text-xs text-red-600 mt-1">Passwords don't match yet.</p>}
+ </div>
 
  <button
  type="submit"
@@ -140,6 +184,8 @@ export function Step1SignUp({ onNext, onLoginClick }: Step1Props) {
  'Create Account'
  )}
  </button>
+
+ <AuthAlternatives mode="signup" />
 
  <div className="mt-6 text-center text-sm text-slate-500">
  Already have an account?{' '}

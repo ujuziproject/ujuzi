@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigationStore } from './MainApp';
-import { Play, FileText, Library, CheckSquare } from 'lucide-react';
+import { Play, FileText, Library, CheckSquare, MoreHorizontal, Pencil, Trash2, Loader2 } from 'lucide-react';
 
 export default function CourseDetail({ userId, onNavigate }: { userId: string, onNavigate: (v: any) => void }) {
   const { dashboardCourseId, dashboardCurriculumId, setDashboardView, setDashboardTopicId } = useNavigationStore();
@@ -12,6 +12,40 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
   const [topics, setTopics] = useState<any[]>([]);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  const table = isCurriculum ? 'curricula' : 'courses';
+  const titleColumn = isCurriculum ? 'title' : 'course_title';
+
+  const saveTitle = async () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    setBusy(true);
+    setActionError('');
+    const { error } = await supabase.from(table).update({ [titleColumn]: title }).eq('id', courseId);
+    setBusy(false);
+    if (error) { setActionError(`Couldn't rename: ${error.message}`); return; }
+    setCourse((c: any) => ({ ...c, course_title: title }));
+    setRenaming(false);
+  };
+
+  const deleteCourse = async () => {
+    setBusy(true);
+    setActionError('');
+    const { error, count } = await supabase.from(table).delete({ count: 'exact' }).eq('id', courseId);
+    setBusy(false);
+    if (error || count === 0) {
+      setActionError(error ? `Couldn't delete: ${error.message}` : "Couldn't delete this course. Run the latest database update and try again.");
+      return;
+    }
+    setDashboardView('home');
+    onNavigate('courses');
+  };
 
   useEffect(() => {
     if (!courseId) {
@@ -103,10 +137,44 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
         
         <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-5">
           <div>
-            <h1 className="text-3xl font-bold font-display mb-1.5 text-ink">{course.course_title}</h1>
+            {renaming ? (
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <input
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setRenaming(false); }}
+                  autoFocus
+                  maxLength={120}
+                  aria-label="Course name"
+                  className="text-2xl font-bold font-display text-ink border border-border rounded-xl px-3 py-1.5 focus:outline-none focus:border-accent min-w-0"
+                />
+                <button onClick={saveTitle} disabled={busy} className="px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}</button>
+                <button onClick={() => setRenaming(false)} className="px-4 py-2 rounded-full text-sm font-semibold text-slate-500">Cancel</button>
+              </div>
+            ) : (
+              <h1 className="text-3xl font-bold font-display mb-1.5 text-ink">{course.course_title}</h1>
+            )}
             <div className="text-[14px] text-ink/60">{topics.length} topics · Notes, flashcards & quizzes generated for each</div>
           </div>
           <div className="flex gap-6 items-center shrink-0">
+            <div className="relative order-last">
+              <button onClick={() => setMenuOpen(o => !o)} aria-label="Course options" className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-slate-500 hover:bg-slate-50">
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-40 animate-in fade-in">
+                    <button onClick={() => { setMenuOpen(false); setNewTitle(course.course_title || ''); setRenaming(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left">
+                      <Pencil className="w-4 h-4" /> Rename
+                    </button>
+                    <button onClick={() => { setMenuOpen(false); setConfirmDelete(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 text-left">
+                      <Trash2 className="w-4 h-4" /> Delete course
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="text-right">
                <div className="font-mono font-bold text-[20px] text-ink">{progress}%</div>
                <div className="text-[11.5px] text-ink/60 uppercase tracking-[0.04em]">Complete</div>
@@ -118,6 +186,17 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
           </div>
         </div>
         
+        {confirmDelete && (
+          <div className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 flex flex-col md:flex-row md:items-center justify-between gap-3" role="alertdialog" aria-label="Confirm delete">
+            <div className="text-sm text-red-800"><strong>Delete “{course.course_title}”?</strong> Its topics, notes, flashcards, quizzes and progress will be removed. This can’t be undone.</div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={deleteCourse} disabled={busy} className="px-4 py-2 rounded-full bg-red-600 text-white text-sm font-semibold flex items-center gap-2">{busy && <Loader2 className="w-4 h-4 animate-spin" />} Delete</button>
+              <button onClick={() => setConfirmDelete(false)} disabled={busy} className="px-4 py-2 rounded-full text-sm font-semibold text-slate-600 hover:bg-white">Cancel</button>
+            </div>
+          </div>
+        )}
+        {actionError && <p className="mb-4 text-sm text-red-700" role="alert">{actionError}</p>}
+
         <div className="h-2.5 rounded-full bg-border overflow-hidden mb-4">
           <div className="h-full bg-gradient-to-r from-[#5B4FE8] to-[#7C6FF0] rounded-full" style={{ width: `${progress}%` }}></div>
         </div>
