@@ -54,7 +54,11 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
         if (c.type === 'course') topicQuery = topicQuery.eq('course_id', c.id);
         else topicQuery = topicQuery.eq('curriculum_id', c.id);
         
-        const { data: topics } = await topicQuery;
+        const { data: topics, error: topicsError } = await topicQuery;
+        if (topicsError) {
+          console.error('Could not load topics for', c.title, topicsError);
+          return { ...c, progress: 0, nextTopic: null, totalTopics: 0, mastered: 0, loadError: topicsError.message };
+        }
         if (!topics || topics.length === 0) return { ...c, progress: 0, nextTopic: null, totalTopics: 0, mastered: 0 };
         
         // Find mastered
@@ -92,15 +96,18 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
     fetchCourses();
   }, [userId]);
 
+  // The course page lives inside the Overview screen, so switch there as well
+  // (previously only the hidden Overview state changed and nothing happened on screen).
   const handleOpenCourse = (c: any) => {
-    
     if (c.type === 'course') {
+      setDashboardCurriculumId(null);
       setDashboardCourseId(c.id);
-      setDashboardView('courseDetail');
     } else {
+      setDashboardCourseId(null);
       setDashboardCurriculumId(c.id);
-      setDashboardView('courseDetail');
     }
+    setDashboardView('courseDetail');
+    onNavigate('dashboard');
   };
 
   if (loading) {
@@ -113,9 +120,9 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
         <div className="relative z-10 flex justify-between items-start">
           <div>
             <div className="inline-flex items-center gap-2 bg-[#F5A623]/15 border border-[#F5A623]/25 text-[#F5A623] px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold mb-4">
-              {courses.length} active courses
+              {courses.length} active {courses.length === 1 ? 'course' : 'courses'}
             </div>
-            <h1 className="text-3xl font-bold font-display mb-2">My courses</h1>
+            <h1 className="text-3xl font-bold font-display mb-2 text-white">My courses</h1>
             <p className="text-white/70">Pick up exactly where you left off — progress syncs across notes, flashcards and quizzes.</p>
           </div>
           <button onClick={() => { onNavigate('dashboard'); setDashboardView('upload'); }} className="bg-white text-ink px-5 py-2.5 rounded-full font-semibold text-[14px] hover:bg-white/90 transition-colors shadow-sm hidden md:flex items-center gap-1.5 shrink-0 z-20 relative">
@@ -131,10 +138,11 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
           const barClass = i % 2 === 0 ? 'bg-gradient-to-r from-[#5B4FE8] to-[#7C6FF0]' : 'bg-[#F5A623]';
 
           return (
-            <div 
+            <button
+              type="button"
               key={c.id} 
               onClick={() => handleOpenCourse(c)}
-              className={`rounded-[20px] p-6 cursor-pointer hover:shadow-md transition-shadow border border-transparent ${bgClass}`}
+              className={`text-left w-full rounded-[20px] p-6 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-transparent hover:border-accent/30 ${bgClass}`}
             >
               <h3 className="font-display font-semibold text-[18px] text-ink mb-1">{c.title}</h3>
               <p className="text-[13.5px] text-ink/60 mb-4">{c.desc}</p>
@@ -145,8 +153,14 @@ export default function MyCourses({ userId, onNavigate }: { userId: string, onNa
               <div className="h-2 rounded-full bg-ink/5 overflow-hidden mb-3">
                  <div className={`h-full ${barClass} rounded-full`} style={{ width: `${c.progress}%` }}></div>
               </div>
-              <div className="text-[13px] text-ink"><strong>Next:</strong> {c.nextTopic || 'Not started yet'}</div>
-            </div>
+              {c.loadError ? (
+                <div className="text-[13px] text-red-700"><strong>Couldn't load topics:</strong> {c.loadError}</div>
+              ) : c.totalTopics === 0 ? (
+                <div className="text-[13px] text-ink/70"><strong>No topics saved yet.</strong> This upload didn't finish — open it to add the outline again.</div>
+              ) : (
+                <div className="text-[13px] text-ink"><strong>Next:</strong> {c.nextTopic || 'Not started yet'}</div>
+              )}
+            </button>
           );
         })}
         {courses.length === 0 && (

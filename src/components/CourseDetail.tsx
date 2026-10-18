@@ -36,7 +36,8 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
       if (isCurriculum) topicQuery = topicQuery.eq('curriculum_id', courseId);
       else topicQuery = topicQuery.eq('course_id', courseId);
       
-      const { data: tData } = await topicQuery;
+      const { data: tData, error: tError } = await topicQuery;
+      if (tError) console.error('Could not load topics', tError);
       let fetchedTopics = tData || [];
 
       // calculate progress based on mastery
@@ -102,7 +103,7 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
         
         <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-5">
           <div>
-            <h1 className="text-3xl font-bold font-display mb-1.5">{course.course_title}</h1>
+            <h1 className="text-3xl font-bold font-display mb-1.5 text-ink">{course.course_title}</h1>
             <div className="text-[14px] text-ink/60">{topics.length} topics · Notes, flashcards & quizzes generated for each</div>
           </div>
           <div className="flex gap-6 items-center shrink-0">
@@ -118,7 +119,7 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
         </div>
         
         <div className="h-2.5 rounded-full bg-border overflow-hidden mb-4">
-          <div className="h-full bg-gradient-to-r from-[#5B4FE8] to-[#7C6FF0] rounded-full" style={{ width: `\${progress}%` }}></div>
+          <div className="h-full bg-gradient-to-r from-[#5B4FE8] to-[#7C6FF0] rounded-full" style={{ width: `${progress}%` }}></div>
         </div>
         
         {nextTopic && (
@@ -149,9 +150,9 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
               <div 
                 key={t.id} 
                 onClick={() => handleOpenTopic(t)}
-                className={`flex items-center gap-4 p-4 px-5 bg-surface-alt border \${isCurrent ? 'border-[#5B4FE8] bg-[#EDEBFC] dark:bg-accent/15' : 'border-border'} rounded-2xl cursor-pointer hover:shadow-sm transition-all \${isMastered ? 'opacity-65' : ''}`}
+                className={`flex items-center gap-4 p-4 px-5 bg-surface-alt border ${isCurrent ? 'border-[#5B4FE8] bg-[#EDEBFC] dark:bg-accent/15' : 'border-border'} rounded-2xl cursor-pointer hover:shadow-sm transition-all ${isMastered ? 'opacity-65' : ''}`}
               >
-                <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center \${typeClass}`}>
+                <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${typeClass}`}>
                    <Icon className="w-5 h-5" />
                 </div>
                 <div>
@@ -166,7 +167,15 @@ export default function CourseDetail({ userId, onNavigate }: { userId: string, o
               </div>
             );
           })}
-          {topics.length === 0 && <div className="text-sm text-slate-500 py-4 text-center">No topics found in this course.</div>}
+          {topics.length === 0 && (
+            <div className="py-8 text-center">
+              <div className="font-semibold text-ink mb-1">No topics saved for this course yet</div>
+              <p className="text-sm text-slate-500 mb-5">The upload didn't finish. Add the outline again and we'll build the notes, flashcards and quizzes.</p>
+              <button onClick={() => { onNavigate('dashboard'); setDashboardView('upload'); }} className="bg-accent text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-accent/90 transition-colors">
+                Add the outline again
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

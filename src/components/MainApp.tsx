@@ -176,6 +176,9 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
     loadData();
   }, [userId]);
 
+  // Course pages live inside the Overview screen; highlight "Courses" while one is open
+  const inCourse = ['courseDetail', 'curriculum', 'semesterDetail', 'goalDetail'].includes(dashboardView);
+
   return (
     <NavigationContext.Provider value={{
       dashboardView, setDashboardView,
@@ -195,8 +198,8 @@ export function MainApp({ name, avatarUrl, userId, onLogout }: MainAppProps) {
         </div>
         
         <nav className="flex flex-col gap-2 flex-1 px-1">
-           <SidebarItem active={currentView === 'dashboard'} icon={<LayoutGrid className="w-[18px] h-[18px]" />} label="Overview" onClick={() => { setCurrentView('dashboard'); setDashboardView('home'); }} />
-           <SidebarItem active={currentView === 'courses'} icon={<BookOpen className="w-[18px] h-[18px]" />} label="Courses" onClick={() => setCurrentView('courses')} />
+           <SidebarItem active={currentView === 'dashboard' && !inCourse} icon={<LayoutGrid className="w-[18px] h-[18px]" />} label="Overview" onClick={() => { setCurrentView('dashboard'); setDashboardView('home'); }} />
+           <SidebarItem active={currentView === 'courses' || (currentView === 'dashboard' && inCourse)} icon={<BookOpen className="w-[18px] h-[18px]" />} label="Courses" onClick={() => setCurrentView('courses')} />
            <SidebarItem active={currentView === 'progress'} icon={<Activity className="w-[18px] h-[18px]" />} label="Progress" onClick={() => setCurrentView('progress')} />
            <SidebarItem active={currentView === 'planner'} icon={<Calendar className="w-[18px] h-[18px]" />} label="Planner" onClick={() => setCurrentView('planner')} />
            <SidebarItem active={currentView === 'profile'} icon={<Settings className="w-[18px] h-[18px]" />} label="Settings" onClick={() => setCurrentView('profile')} />
